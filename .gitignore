@@ -13,6 +13,9 @@ out/
 # vercel
 .vercel/
 
+# generated media stays local (File Law archive) — manifest.jsonl is tracked
+assets/*/
+
 # misc
 .DS_Store
 *.log
