@@ -37,13 +37,14 @@ fi
 
 ASSETS_JSON=$(curl -fsS -b "$COOKIES" "$STUDIO_URL/api/assets?after_id=$AFTER_ID")
 
+# \x1f (unit separator) keeps empty fields intact — tab is IFS whitespace and collapses them.
 echo "$ASSETS_JSON" | python3 -c '
 import json, sys
 assets = json.load(sys.stdin)["assets"]
 for a in sorted(assets, key=lambda x: x["id"]):
-    print("\t".join(str(a.get(k) or "") for k in
+    print("\x1f".join(str(a.get(k) or "") for k in
           ("id","blob_url","project","model","label","created_at","est_usd","actual_usd","request_id","content_type")))
-' | while IFS=$'\t' read -r ID URL PROJECT MODEL LABEL CREATED EST ACTUAL REQID CTYPE; do
+' | while IFS=$'\x1f' read -r ID URL PROJECT MODEL LABEL CREATED EST ACTUAL REQID CTYPE; do
   DATE=$(echo "$CREATED" | cut -dT -f1)
   TIME=$(echo "$CREATED" | cut -dT -f2 | cut -d. -f1 | tr -d :)
   case "$CTYPE" in
