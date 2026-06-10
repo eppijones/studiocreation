@@ -2,14 +2,14 @@
   "providers": {
     "fal": {
       "models": {
-        "fal-ai/flux/schnell": { "unit": "image", "usd": 0.02 },
+        "fal-ai/flux/schnell": { "unit": "image", "usd": 0.004 },
         "fal-ai/nano-banana-2": { "unit": "image", "usd": 0.08, "tiers": { "4k": 0.16 } },
         "fal-ai/nano-banana-pro": { "unit": "image", "usd": 0.15, "tiers": { "4k": 0.3 } },
-        "fal-ai/wan-2.5": { "unit": "video_second", "usd": 0.05 },
-        "fal-ai/kling-2.5-turbo-pro": { "unit": "video_second", "usd": 0.07 },
-        "fal-ai/kling-3.0-pro": { "unit": "video_second", "usd": 0.112, "audio_on": 0.168 },
-        "fal-ai/seedance-2.0": { "unit": "video_second", "usd": 0.3034, "fast": 0.2419 },
-        "fal-ai/veo-3.1-fast": { "unit": "video_second", "usd": 0.1, "audio_on": 0.15 }
+        "fal-ai/wan-25-preview/text-to-video": { "unit": "video_second", "usd": 0.05 },
+        "fal-ai/kling-video/v2.5-turbo/pro/text-to-video": { "unit": "video_second", "usd": 0.07 },
+        "fal-ai/kling-video/v3/pro/text-to-video": { "unit": "video_second", "usd": 0.14, "audio_on": 0.21 },
+        "bytedance/seedance-2.0/text-to-video": { "unit": "video_second", "usd": 0.3034, "fast": 0.2419 },
+        "fal-ai/veo3.1/fast": { "unit": "video_second", "usd": 0.1, "audio_on": 0.15 }
       }
     },
     "higgsfield": {

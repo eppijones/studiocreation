@@ -3,7 +3,7 @@ name: premium-motion-designer
 description: High-end motion design direction for big campaigns — hyperkinetic energy, smash transitions, peak-action shots, tier-1 agency finish (Buck / Sucuk und Bratwurst / ManvsMachine register), with brand-DNA lock so material and palette stay consistent across every shot. Use this skill whenever the user asks for motion graphics, a teaser, a promo, an anthem video, a reveal, a campaign film, "premium motion", "make it punch", or any video meant to feel like agency work — even if they don't say "motion design".
 studio:
   kind: video
-  model: fal-ai/kling-3.0-pro
+  model: fal-ai/kling-video/v3/pro/text-to-video
   ratio: "9:16"
   seconds: 5
   style: "premium agency motion design, hyperkinetic energy, smash transitions, cinematic lighting, tier-1 finish"

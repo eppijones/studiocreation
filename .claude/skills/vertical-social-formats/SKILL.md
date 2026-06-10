@@ -3,7 +3,7 @@ name: vertical-social-formats
 description: Platform-perfect formatting for TikTok, Instagram Reels, YouTube Shorts, X and Facebook — 9:16 vertical video specs, UI safe zones, hook timing, caption rules, aspect-ratio adaptation and ffmpeg export commands. Use for ANY deliverable headed to social media, any 9:16/vertical request, any "make this work for TikTok/IG/Shorts", reformatting, cropping, or multi-platform export task.
 studio:
   kind: video
-  model: fal-ai/kling-2.5-turbo-pro
+  model: fal-ai/kling-video/v2.5-turbo/pro/text-to-video
   ratio: "9:16"
   seconds: 5
   style: "vertical social video, hook-first composition, UI safe zones respected, scroll-stopping first frame"

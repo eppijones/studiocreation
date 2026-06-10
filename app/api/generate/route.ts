@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { estimate, modelUnit, listModels, CONFIRM_THRESHOLD_USD } from "@/lib/pricing";
 import { getBudgetState } from "@/lib/budget";
 import { falProvider } from "@/lib/providers/fal";
-import { buildFalInput, type GenerateSpec } from "@/lib/providers/falInput";
+import { buildFalInput, falEndpoint, type GenerateSpec } from "@/lib/providers/falInput";
 import { sql } from "@/lib/db";
 import { OPERATOR_COOKIE } from "@/lib/auth";
 
@@ -64,10 +64,11 @@ export async function POST(request: Request) {
 
   const spec: GenerateSpec = { prompt, kind, numImages, seconds, ratio, audio, fast, tier };
   const falInput = buildFalInput(model, spec);
+  const endpoint = falEndpoint(model, spec);
 
   const inserted = await sql`
     INSERT INTO jobs (provider, model, prompt, params, status, est_usd, operator, project, label)
-    VALUES ('fal', ${model}, ${prompt}, ${JSON.stringify({ spec, falInput })}, 'queued',
+    VALUES ('fal', ${endpoint}, ${prompt}, ${JSON.stringify({ spec, falInput })}, 'queued',
             ${est.usd}, ${operator}, ${project}, ${label})
     RETURNING id
   `;
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
 
   try {
     const { requestId } = await falProvider.submitJob({
-      model,
+      model: endpoint,
       input: falInput,
       webhookUrl: `${baseUrl()}/api/webhooks/fal?jobId=${jobId}`,
     });
