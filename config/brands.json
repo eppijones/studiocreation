@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "none": {
+      "label": "No brand",
+      "style": "",
+      "palette": [],
+      "notes": ""
+    },
+    "starxi": {
+      "label": "StarXI",
+      "style": "StarXI brand: collectible figurine style, slim athletic build, sculpted cultural platform base, gold cream and deep green palette, shield crest with star and XI, stadium energy, premium-but-playful",
+      "palette": ["gold", "cream", "deep green"],
+      "notes": "Chroma key background: flat magenta #FF1FB4. 96 nation characters."
+    },
+    "strikelab": {
+      "label": "StrikeLab",
+      "style": "StrikeLab brand: clean, technical, precise, modern golf aesthetic, minimal composition",
+      "palette": ["black", "white", "signal green"],
+      "notes": "strikelab.golf"
+    }
+  }
+}

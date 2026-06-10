@@ -1,6 +1,11 @@
 ---
 name: infographic-animator
 description: Makes data move — animated infographics where numbers and charts are the visual centerpiece, not decoration. Use whenever the user mentions stats, charts, data, comparisons, rankings, timelines, "explain with numbers", squad stats, player ratings, or wants an infographic, dashboard-style video, or data-driven social post — even if they don't say "infographic".
+studio:
+  kind: image
+  model: fal-ai/nano-banana-2
+  ratio: "9:16"
+  style: "animated infographic style, bold data visualization, clean typography, high contrast, numbers as the hero"
 ---
 
 # Infographic Animator

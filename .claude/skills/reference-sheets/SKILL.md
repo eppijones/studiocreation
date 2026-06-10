@@ -1,6 +1,11 @@
 ---
 name: reference-sheets
 description: Character and world consistency via the GPT Image 2 → Seedance 2.0 pipeline — reusable reference sheets, multi-panel storyboard grids, and reference-to-video generation. Use for ANY character-driven work (StarXI's 96 figurines especially), any series/episodic content, TV bumpers with recurring elements, whenever the user says "same character", "keep it consistent", "it morphed", or before any multi-shot video where identity, wardrobe, props or brand elements must hold across shots.
+studio:
+  kind: image
+  model: fal-ai/nano-banana-pro
+  ratio: "1:1"
+  style: "character reference sheet, multi-panel grid, consistent identity across views, clean studio lighting, labeled angles"
 ---
 
 # Reference Sheets (The Consistency Stack)

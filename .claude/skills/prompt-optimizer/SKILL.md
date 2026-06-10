@@ -1,6 +1,11 @@
 ---
 name: prompt-optimizer
 description: Rewrites the user's plain-language idea into the optimal model-specific prompt before any generation call — right vocabulary per model, right length, one-variable iteration, no over-specification. ALWAYS use this before calling generate_image or generate_video, and whenever the user gives a rough/casual prompt, asks "improve my prompt", or results keep missing the brief.
+studio:
+  kind: image
+  model: fal-ai/flux/schnell
+  ratio: "1:1"
+  style: ""
 ---
 
 # Prompt Optimizer

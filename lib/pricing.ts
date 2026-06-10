@@ -61,8 +61,26 @@ export function estimate(spec: JobSpec): Estimate {
   return { usd, unit: model.unit, unitUsd, count: spec.count, breakdown };
 }
 
-export function listImageModels(): string[] {
-  return Object.entries(FAL_MODELS)
-    .filter(([, m]) => m.unit === "image")
-    .map(([id]) => id);
+export interface ModelInfo {
+  id: string;
+  unit: string;
+  usd: number;
+  has4k: boolean;
+  hasAudio: boolean;
+  hasFast: boolean;
+}
+
+export function listModels(): ModelInfo[] {
+  return Object.entries(FAL_MODELS).map(([id, m]) => ({
+    id,
+    unit: m.unit,
+    usd: m.usd,
+    has4k: m.tiers?.["4k"] !== undefined,
+    hasAudio: m.audio_on !== undefined,
+    hasFast: m.fast !== undefined,
+  }));
+}
+
+export function modelUnit(model: string): string {
+  return FAL_MODELS[model]?.unit ?? "image";
 }

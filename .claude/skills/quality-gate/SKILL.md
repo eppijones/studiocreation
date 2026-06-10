@@ -1,6 +1,11 @@
 ---
 name: quality-gate
 description: The critical high-end delivery filter — scores every draft against a production rubric, decides retry vs escalate vs ship, and guards credit spend. MUST run before any hero render, any upscale, any "final", and whenever the user asks "is this good enough", "be critical", or seems unsure about a result. Also owns top-up and model-upgrade recommendations.
+studio:
+  kind: image
+  model: fal-ai/flux/schnell
+  ratio: "1:1"
+  style: ""
 ---
 
 # Quality Gate

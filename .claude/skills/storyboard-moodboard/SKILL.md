@@ -1,6 +1,11 @@
 ---
 name: storyboard-moodboard
 description: Pre-production on unlimited models — turn a brief into a beat sheet, shot list, storyboard frames and a moodboard before any video credit is spent. Use whenever the user starts a new video/campaign idea, says "storyboard", "moodboard", "concept", "direction", "what should this look like", or jumps straight to "make a video" without locked shots — board first, render second.
+studio:
+  kind: image
+  model: fal-ai/flux/schnell
+  ratio: "16:9"
+  style: "storyboard frame, cinematic composition, moodboard still, draft quality"
 ---
 
 # Storyboard & Moodboard

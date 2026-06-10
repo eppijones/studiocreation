@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { estimate, CONFIRM_THRESHOLD_USD } from "@/lib/pricing";
+import { estimate, modelUnit, listModels, CONFIRM_THRESHOLD_USD } from "@/lib/pricing";
 import { getBudgetState } from "@/lib/budget";
 import { falProvider } from "@/lib/providers/fal";
-import { sql, type JobRow } from "@/lib/db";
+import { buildFalInput, type GenerateSpec } from "@/lib/providers/falInput";
+import { sql } from "@/lib/db";
 import { OPERATOR_COOKIE } from "@/lib/auth";
 
 export const maxDuration = 60;
 
-const ALLOWED_MODELS = ["fal-ai/flux/schnell"];
+const ALLOWED_MODELS = new Set(listModels().map((m) => m.id));
 
 function baseUrl(): string {
   if (process.env.STUDIO_BASE_URL) return process.env.STUDIO_BASE_URL;
@@ -23,6 +24,11 @@ export async function POST(request: Request) {
   const prompt: string = (body.prompt ?? "").trim();
   const model: string = body.model ?? "fal-ai/flux/schnell";
   const numImages: number = Math.min(Math.max(Number(body.numImages) || 1, 1), 4);
+  const seconds: number = Math.min(Math.max(Number(body.seconds) || 5, 1), 12);
+  const ratio: string = body.ratio ?? "1:1";
+  const audio: boolean = body.audio === true;
+  const fast: boolean = body.fast === true;
+  const tier: string | undefined = body.tier === "4k" ? "4k" : undefined;
   const project: string = (body.project ?? "studio").trim() || "studio";
   const label: string = (body.label ?? "asset").trim() || "asset";
   const confirmed: boolean = body.confirmed === true;
@@ -30,11 +36,13 @@ export async function POST(request: Request) {
   if (!prompt) {
     return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   }
-  if (!ALLOWED_MODELS.includes(model)) {
-    return NextResponse.json({ error: `Model not enabled yet: ${model}` }, { status: 400 });
+  if (!ALLOWED_MODELS.has(model)) {
+    return NextResponse.json({ error: `Unknown model: ${model}` }, { status: 400 });
   }
 
-  const est = estimate({ provider: "fal", model, count: numImages });
+  const kind = modelUnit(model) === "video_second" ? "video" : "image";
+  const count = kind === "video" ? seconds : numImages;
+  const est = estimate({ provider: "fal", model, count, tier, audio, fast });
 
   // Budget law: hard daily cap, confirm gate above threshold.
   const budget = await getBudgetState();
@@ -54,10 +62,13 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const operator = cookieStore.get(OPERATOR_COOKIE)?.value ?? "unknown";
 
-  const params = { numImages };
+  const spec: GenerateSpec = { prompt, kind, numImages, seconds, ratio, audio, fast, tier };
+  const falInput = buildFalInput(model, spec);
+
   const inserted = await sql`
     INSERT INTO jobs (provider, model, prompt, params, status, est_usd, operator, project, label)
-    VALUES ('fal', ${model}, ${prompt}, ${JSON.stringify(params)}, 'queued', ${est.usd}, ${operator}, ${project}, ${label})
+    VALUES ('fal', ${model}, ${prompt}, ${JSON.stringify({ spec, falInput })}, 'queued',
+            ${est.usd}, ${operator}, ${project}, ${label})
     RETURNING id
   `;
   const jobId = inserted[0].id as number;
@@ -65,7 +76,7 @@ export async function POST(request: Request) {
   try {
     const { requestId } = await falProvider.submitJob({
       model,
-      input: { prompt, num_images: numImages },
+      input: falInput,
       webhookUrl: `${baseUrl()}/api/webhooks/fal?jobId=${jobId}`,
     });
     await sql`UPDATE jobs SET request_id = ${requestId}, status = 'running' WHERE id = ${jobId}`;
@@ -76,5 +87,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
-
-export type { JobRow };
