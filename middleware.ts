@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks/fal"];
+// /api/reconcile does its own auth (studio session OR Vercel cron secret).
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks/fal", "/api/reconcile"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
