@@ -325,6 +325,16 @@ select:focus {
   white-space: nowrap;
 }
 
+.handoff-pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  margin: 12px 0 0;
+}
+
 .row {
   display: flex;
   align-items: center;

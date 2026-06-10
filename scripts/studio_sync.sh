@@ -2,7 +2,8 @@
 # Mirror cloud assets (Vercel Blob via the app API) down to local File Law
 # folders + assets/manifest.jsonl. Idempotent — tracks the last synced asset id.
 #
-# usage: scripts/studio_sync.sh
+# usage: scripts/studio_sync.sh         pull cloud assets -> local archive
+#        scripts/studio_sync.sh push    upload local manifest rows the DB hasn't seen
 # env:   STUDIO_URL (default https://studiocreation.vercel.app)
 #        STUDIO_PASSWORD (read from .env if present)
 set -euo pipefail
@@ -22,6 +23,17 @@ trap 'rm -f "$COOKIES"' EXIT
 curl -fsS -c "$COOKIES" -X POST "$STUDIO_URL/api/auth" \
   -H 'Content-Type: application/json' \
   -d "{\"password\":\"$STUDIO_PASSWORD\",\"operator\":\"sync\"}" >/dev/null
+
+if [ "${1:-pull}" = "push" ]; then
+  # Upload local manifest rows (MCP/Higgsfield work) into the cloud ledger.
+  [ -f assets/manifest.jsonl ] || { echo "no manifest to push"; exit 0; }
+  curl -fsS -b "$COOKIES" -X POST "$STUDIO_URL/api/import/manifest" \
+    -H 'Content-Type: application/x-ndjson' \
+    --data-binary @assets/manifest.jsonl
+  echo
+  echo "push complete"
+  exit 0
+fi
 
 ASSETS_JSON=$(curl -fsS -b "$COOKIES" "$STUDIO_URL/api/assets?after_id=$AFTER_ID")
 

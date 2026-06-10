@@ -194,7 +194,7 @@ export default function GeneratePage() {
       <h1>StudioCreation</h1>
       <p className="subtitle">
         Operator: <strong>{operator}</strong> · <a href="/gallery">gallery</a> ·{" "}
-        <a href="/costs">costs</a>
+        <a href="/costs">costs</a> · <a href="/handoff">handoff</a> · <a href="/briefs">briefs</a>
       </p>
 
       {budget && (
