@@ -1,6 +1,6 @@
 ---
 name: audio-master
-description: Audio finishing and mastering for video deliverables — loudness normalization, music/VO balance, ducking, platform loudness targets, all done locally with ffmpeg at zero credits. Use whenever a deliverable has sound: final exports, "fix the audio", "too quiet/loud", adding music or voiceover, anthem/Suno track integration, or before any video ships to social.
+description: 'Audio finishing and mastering for video deliverables — loudness normalization, music/VO balance, ducking, platform loudness targets, all done locally with ffmpeg at zero credits. Use whenever a deliverable has sound: final exports, "fix the audio", "too quiet/loud", adding music or voiceover, anthem/Suno track integration, or before any video ships to social.'
 studio:
   kind: image
   model: fal-ai/flux/schnell

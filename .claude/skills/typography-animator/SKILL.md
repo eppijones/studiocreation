@@ -1,6 +1,6 @@
 ---
 name: typography-animator
-description: Kinetic typography and title design — animated text reveals, lyric/anthem text videos, title cards, big-type hooks for social. Use whenever the user wants words on screen to move: titles, captions as the visual, song lyrics timing, countdowns, announcement cards, "text animation", or a hook line that needs to slap.
+description: 'Kinetic typography and title design — animated text reveals, lyric/anthem text videos, title cards, big-type hooks for social. Use whenever the user wants words on screen to move: titles, captions as the visual, song lyrics timing, countdowns, announcement cards, "text animation", or a hook line that needs to slap.'
 studio:
   kind: image
   model: fal-ai/nano-banana-pro
