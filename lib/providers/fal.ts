@@ -1,5 +1,11 @@
 import { fal } from "@fal-ai/client";
-import type { GenerateImageInput, GenerateImageResult, Provider } from "./types";
+import type {
+  GenerateImageInput,
+  GenerateImageResult,
+  Provider,
+  QueueStatus,
+  SubmitJobInput,
+} from "./types";
 
 // Server-only module: FAL_KEY must never reach a client bundle.
 if (typeof window !== "undefined") {
@@ -34,5 +40,23 @@ export const falProvider: Provider = {
         contentType: img.content_type,
       })),
     };
+  },
+
+  async submitJob(input: SubmitJobInput): Promise<{ requestId: string }> {
+    const { request_id } = await fal.queue.submit(input.model, {
+      input: input.input,
+      webhookUrl: input.webhookUrl,
+    });
+    return { requestId: request_id };
+  },
+
+  async getJobStatus(model: string, requestId: string): Promise<QueueStatus> {
+    const status = await fal.queue.status(model, { requestId, logs: false });
+    return status.status as QueueStatus;
+  },
+
+  async getJobResult(model: string, requestId: string): Promise<Record<string, unknown>> {
+    const result = await fal.queue.result(model, { requestId });
+    return result.data as Record<string, unknown>;
   },
 };
