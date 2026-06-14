@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { estimate, listModels, defaultSeconds, coerceSeconds, type ModelInfo } from "@/lib/pricing";
 import { resolveBrandStyle, brandPath, topLevelBrands, subBrandsOf, type BrandProfile } from "@/lib/brandTypes";
 import { useStudio } from "../components/AppShell";
@@ -103,13 +104,42 @@ const ROLE_ICON: Record<string, string> = {
   "product-photographer": "gallery",
 };
 
-// Mesh-gradient tile background, by stable role hue.
+// Mesh-gradient tile background, by stable role hue. Now the *fallback* under a
+// role's photo — shown only until the studio has a keeper to wear, or a curated
+// still is dropped in /public/roles.
 function roleMesh(hue: number): string {
   return (
     `radial-gradient(95% 120% at 14% 6%, oklch(0.6 0.2 ${hue}) 0%, transparent 56%),` +
     `radial-gradient(85% 110% at 88% 16%, oklch(0.52 0.22 ${(hue + 70) % 360}) 0%, transparent 52%),` +
     `radial-gradient(120% 100% at 55% 110%, oklch(0.34 0.16 ${(hue + 305) % 360}) 0%, transparent 62%),` +
     `var(--bg-2)`
+  );
+}
+
+interface RoleArtAsset {
+  blob_url: string;
+  content_type: string | null;
+  score: number | null;
+  status: string;
+  label: string;
+  role: string | null;
+}
+
+// A role tile's face: the studio's own best render for that role → a curated
+// still at /roles/<id>.{webp,jpg} → (null, mesh shows through). Each source can
+// 404 or fail; onError walks down the chain so a tile is never broken.
+function RoleArt({ roleId, live }: { roleId: string; live?: string }) {
+  const chain = useMemo(
+    () => [live, `/roles/${roleId}.webp`, `/roles/${roleId}.jpg`].filter(Boolean) as string[],
+    [roleId, live]
+  );
+  const [idx, setIdx] = useState(0);
+  useEffect(() => setIdx(0), [roleId, live]);
+  const src = chain[idx];
+  if (!src) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className="role-photo" src={src} alt="" loading="lazy" onError={() => setIdx((i) => i + 1)} />
   );
 }
 
@@ -189,6 +219,7 @@ export default function CreatePage() {
   const [enhancing, setEnhancing] = useState(false);
   const [motion, setMotion] = useState("");
   const [lastJobId, setLastJobId] = useState<number | null>(null);
+  const [roleArt, setRoleArt] = useState<Record<string, string>>({});
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const hydratedRef = useRef(false);
@@ -275,6 +306,33 @@ export default function CreatePage() {
     fetch("/api/brands")
       .then((r) => r.json())
       .then((d) => setBrandList(d.brands ?? []))
+      .catch(() => {});
+  }, []);
+
+  // Each role wears its own best work. Pull the studio's highest-scoring keeper
+  // (approved / delivered, or 8+) rendered under each role — images only, so a
+  // tile never shows a half-loaded video. Curated stills + the mesh gradient are
+  // the fallbacks (see RoleArt).
+  useEffect(() => {
+    fetch("/api/assets")
+      .then((r) => r.json())
+      .then((d) => {
+        const best: Record<string, number> = {};
+        const url: Record<string, string> = {};
+        for (const a of (d.assets ?? []) as RoleArtAsset[]) {
+          if (!a.blob_url || !(a.content_type ?? "image").startsWith("image")) continue;
+          const keeper = a.status === "approved" || a.status === "delivered" || (a.score ?? 0) >= 8;
+          if (!keeper) continue;
+          const key = a.role || a.label;
+          if (!key) continue;
+          const score = a.score ?? 8;
+          if (best[key] === undefined || score > best[key]) {
+            best[key] = score;
+            url[key] = a.blob_url;
+          }
+        }
+        setRoleArt(url);
+      })
       .catch(() => {});
   }, []);
 
@@ -547,6 +605,7 @@ export default function CreatePage() {
             refAudioUrls,
             project,
             label: label || (employee ? employee.id : "asset"),
+            role: employeeId || undefined,
             confirmed,
           }),
         });
@@ -710,12 +769,12 @@ export default function CreatePage() {
                 >
                   <span className="role-fill">
                     <span className="role-bg" style={{ background: roleMesh(hueFor(e.id)) }} />
-                    <span className="role-grain" />
+                    <RoleArt roleId={e.id} live={roleArt[e.id]} />
+                    <span className="role-scrim" />
                   </span>
                   <div className="role-ico">
-                    <Icon name={ROLE_ICON[e.id] ?? (s?.kind === "video" ? "video" : "image")} size={20} />
+                    <Icon name={ROLE_ICON[e.id] ?? (s?.kind === "video" ? "video" : "image")} size={18} />
                   </div>
-                  {s?.ratio && <span className="role-ratio mono">{s.ratio}</span>}
                   <div className="role-meta">
                     <span className="role-name">{e.name}</span>
                     <span className="role-kind">{s?.kind === "video" ? "Video" : "Image"}</span>
@@ -1038,9 +1097,9 @@ export default function CreatePage() {
             <span className="t-label" style={{ margin: 0 }}>
               <Icon name="lock" size={12} /> Brand lock — {brand && brandId !== "none" ? brandPath(brandList, brandId) : "none"}
             </span>
-            <a className="btn btn-ghost btn-sm" href="/brands">
+            <Link className="btn btn-ghost btn-sm" href="/brands">
               <Icon name="settings" size={13} /> Manage brands
-            </a>
+            </Link>
           </div>
           {brand && brandId !== "none" && (
             <div className="brandlock-card" style={{ marginTop: 12 }}>
@@ -1239,9 +1298,9 @@ function ResultCard({
             <a className="btn btn-sm" href={asset?.blob_url} target="_blank" rel="noreferrer" aria-label="Download render">
               <Icon name="download" size={14} />
             </a>
-            <a className="btn btn-ghost btn-sm" href="/gallery">
+            <Link className="btn btn-ghost btn-sm" href="/gallery">
               <Icon name="gallery" size={13} /> Open gallery
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -1617,9 +1676,9 @@ function BrandPicker({
               </div>
             );
           })}
-          <a className="brandpick-foot" href="/brands">
+          <Link className="brandpick-foot" href="/brands">
             <Icon name="create" size={13} /> Manage brands
-          </a>
+          </Link>
         </div>
       )}
     </div>
