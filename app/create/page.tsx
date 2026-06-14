@@ -86,6 +86,42 @@ const MOTION_PRESETS: { id: string; label: string; phrase: string }[] = [
   { id: "crash", label: "Crash zoom", phrase: "fast crash zoom" },
 ];
 
+// Cinema camera direction — shot size / lens / lighting as prompt modifiers,
+// appended like house style. Works for stills and video (the Open-Gen-AI /
+// Higgsfield "Cinema Studio" pattern); $0, pure prompt composition.
+const CAMERA_PRESETS: { group: string; label: string; options: { id: string; label: string; phrase: string }[] }[] = [
+  {
+    group: "shot",
+    label: "Shot",
+    options: [
+      { id: "wide", label: "Wide", phrase: "wide establishing shot" },
+      { id: "medium", label: "Medium", phrase: "medium shot" },
+      { id: "close", label: "Close-up", phrase: "tight close-up" },
+      { id: "macro", label: "Macro", phrase: "extreme macro detail" },
+    ],
+  },
+  {
+    group: "lens",
+    label: "Lens",
+    options: [
+      { id: "wide-angle", label: "24mm", phrase: "24mm wide-angle lens, deep focus" },
+      { id: "fifty", label: "50mm", phrase: "50mm lens, natural perspective" },
+      { id: "portrait", label: "85mm", phrase: "85mm portrait lens, shallow depth of field, creamy bokeh" },
+      { id: "anamorphic", label: "Anamorphic", phrase: "anamorphic lens, cinematic widescreen, subtle lens flares" },
+    ],
+  },
+  {
+    group: "light",
+    label: "Light",
+    options: [
+      { id: "golden", label: "Golden hour", phrase: "warm golden-hour light" },
+      { id: "soft", label: "Soft studio", phrase: "soft diffused studio lighting" },
+      { id: "noir", label: "Hard noir", phrase: "hard chiaroscuro noir lighting, deep shadows" },
+      { id: "neon", label: "Neon", phrase: "moody neon practical lighting" },
+    ],
+  },
+];
+
 // "Animate next shot": the top image→video model, resolved from the live catalog.
 const I2V_MODEL =
   MODELS.find((m) => m.featured && m.kind === "image-to-video")?.id ??
@@ -218,6 +254,8 @@ export default function CreatePage() {
   const [modelQuery, setModelQuery] = useState("");
   const [enhancing, setEnhancing] = useState(false);
   const [motion, setMotion] = useState("");
+  const [camera, setCamera] = useState<Record<string, string>>({});
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [lastJobId, setLastJobId] = useState<number | null>(null);
   const [roleArt, setRoleArt] = useState<Record<string, string>>({});
   // Sequence (opt-in): a film built shot by shot. Shots share role/brand/model/refs.
@@ -301,7 +339,14 @@ export default function CreatePage() {
   const brandParent = brand?.parent ? brandList.find((b) => b.id === brand.parent) : null;
   const motionNote = isVideo ? (brand?.motion ?? brandParent?.motion ?? "") : "";
   const motionPhrase = isVideo ? MOTION_PRESETS.find((mp) => mp.id === motion)?.phrase ?? "" : "";
-  const styleSuffix = [employee?.studio?.style, brandStyle, motionNote, motionPhrase].filter(Boolean).join(", ");
+  // Selected camera modifiers (shot / lens / light), in a stable order.
+  const cameraPhrase = CAMERA_PRESETS.map((g) => g.options.find((o) => o.id === camera[g.group])?.phrase)
+    .filter(Boolean)
+    .join(", ");
+  const cameraCount = CAMERA_PRESETS.filter((g) => camera[g.group]).length;
+  const styleSuffix = [employee?.studio?.style, brandStyle, motionNote, motionPhrase, cameraPhrase]
+    .filter(Boolean)
+    .join(", ");
   // The skill description front-loads a human summary before the "Use for:" routing text.
   const roleSummary = employee?.description ? employee.description.split(/\s*Use for:/i)[0].trim() : "";
 
@@ -961,6 +1006,14 @@ export default function CreatePage() {
             >
               <Icon name="spark" size={13} /> {enhancing ? "Enhancing…" : "Enhance"}
             </button>
+            <button
+              type="button"
+              className={`chip ${cameraOpen || cameraCount > 0 ? "on" : ""}`}
+              onClick={() => setCameraOpen((v) => !v)}
+              title="Add cinema camera, lens and lighting direction"
+            >
+              <Icon name="film" size={13} /> Camera{cameraCount > 0 ? ` · ${cameraCount}` : ""}
+            </button>
             {isVideo && (
               <>
                 <span className="t-xs muted" style={{ marginLeft: 4 }}>Motion</span>
@@ -977,6 +1030,29 @@ export default function CreatePage() {
               </>
             )}
           </div>
+          {/* CAMERA RACK — shot / lens / light language, appended like house style (image + video) */}
+          {cameraOpen && (
+            <div className="col gap2" style={{ marginTop: 8 }}>
+              {CAMERA_PRESETS.map((g) => (
+                <div key={g.group} className="row gap2 wrap" style={{ alignItems: "center" }}>
+                  <span className="t-xs muted" style={{ width: 44, flex: "none" }}>{g.label}</span>
+                  {g.options.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      className={`chip ${camera[g.group] === o.id ? "on" : ""}`}
+                      title={o.phrase}
+                      onClick={() =>
+                        setCamera((c) => ({ ...c, [g.group]: c[g.group] === o.id ? "" : o.id }))
+                      }
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
           {!prompt.trim() && (
             <div className="row gap2 wrap" style={{ marginTop: 8, alignItems: "center" }}>
               <span className="t-xs muted">Try</span>
@@ -1333,6 +1409,7 @@ export default function CreatePage() {
               {employee?.studio?.style && <span style={{ color: "var(--accent-hi)" }}>, {employee.studio.style}</span>}
               {brandStyle && <span style={{ color: "var(--starxi)" }}>, {brandStyle}</span>}
               {motionNote && <span style={{ color: "var(--accent-hi)" }}>, {motionNote}</span>}
+              {cameraPhrase && <span style={{ color: "var(--accent-hi)" }}>, {cameraPhrase}</span>}
               {negative && <span style={{ color: "var(--bad-tx)" }}> — avoid: {negative}</span>}
             </div>
           )}
