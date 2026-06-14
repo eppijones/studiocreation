@@ -1,6 +1,14 @@
 
 # StudioCreation — Foundation MVP Plan
 
+> **STATUS NOTE (2026-06-14):** Original pre-build plan, kept for history.
+> `CLAUDE.md` and `README.md` are authoritative for current behavior. Since
+> superseded: the **Higgsfield-hybrid / hosted-MCP bridge** (incl.
+> `scripts/hf_pull.sh` and the `/handoff` page) was dropped for a **fal-only**
+> studio in dollars; and the **daily $7.50 cap** below became a **weekly $50
+> shared cap + monthly $120 team pool** (see `config/budget.json`). The FinOps
+> dissent recorded below effectively won.
+
 War-room convened: 10 leads + 5 advisors. Converged on one plan.
 **DISSENT — FinOps lead:** go all-fal immediately; hybrid's manual web-UI drafting hides a labor cost the ledger never sees. Overruled 14–1 until Jul 4.
 
