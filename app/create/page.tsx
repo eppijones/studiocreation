@@ -220,10 +220,17 @@ export default function CreatePage() {
   const [motion, setMotion] = useState("");
   const [lastJobId, setLastJobId] = useState<number | null>(null);
   const [roleArt, setRoleArt] = useState<Record<string, string>>({});
+  // Sequence (opt-in): a film built shot by shot. Shots share role/brand/model/refs.
+  const [seqOpen, setSeqOpen] = useState(false);
+  const [shots, setShots] = useState<{ id: number; prompt: string; motion: string }[]>([]);
+  const [seqName, setSeqName] = useState("sequence");
+  const [seqBusy, setSeqBusy] = useState(false);
+  const [seqSpendOpen, setSeqSpendOpen] = useState(false);
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const hydratedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shotIdRef = useRef(1);
 
   const modelInfo = MODELS.find((m) => m.id === model);
   const isVideo = modelInfo?.unit === "video_second";
@@ -710,6 +717,108 @@ export default function CreatePage() {
     [toast]
   );
 
+  // ---- Sequence (opt-in): build a film shot by shot, then fire the shots in order ----
+  const addShot = useCallback(() => {
+    const p = prompt.trim();
+    if (!p) return;
+    setShots((prev) => [...prev, { id: shotIdRef.current++, prompt: p, motion }]);
+    setPrompt("");
+    promptRef.current?.focus();
+  }, [prompt, motion]);
+
+  const editShot = useCallback(
+    (id: number) => {
+      const s = shots.find((x) => x.id === id);
+      if (!s) return;
+      setPrompt(s.prompt);
+      setMotion(s.motion);
+      setShots((prev) => prev.filter((x) => x.id !== id));
+      promptRef.current?.focus();
+    },
+    [shots]
+  );
+
+  const removeShot = useCallback((id: number) => {
+    setShots((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  const seqTotalUsd = (est?.usd ?? 0) * shots.length;
+  const seqOverThreshold = !!(budget && seqTotalUsd > budget.settings.confirmThresholdUsd);
+  const seqOverCap = !!(budget && seqTotalUsd > budget.remainingWeekUsd);
+
+  // Fire every queued shot in order under one sequence name. One batched preflight;
+  // the server still enforces the weekly cap per shot, so we stop cleanly if it's hit
+  // and keep the un-fired shots so the operator can resume.
+  const runSequence = useCallback(
+    async (confirmed: boolean) => {
+      if (!est || !budget || shots.length === 0 || seqBusy) return;
+      if (!confirmed && seqTotalUsd > budget.settings.confirmThresholdUsd) {
+        setSeqSpendOpen(true);
+        return;
+      }
+      setSeqBusy(true);
+      setError(null);
+      const project = seqName.trim() || "sequence";
+      let fired = 0;
+      let lastId: number | null = null;
+      try {
+        for (let i = 0; i < shots.length; i++) {
+          const shot = shots[i];
+          const motionPh = isVideo ? MOTION_PRESETS.find((m) => m.id === shot.motion)?.phrase ?? "" : "";
+          const suffix = [employee?.studio?.style, brandStyle, motionNote, motionPh].filter(Boolean).join(", ");
+          const fullPrompt = suffix ? `${shot.prompt}, ${suffix}` : shot.prompt;
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: fullPrompt,
+              model,
+              numImages,
+              seconds,
+              ratio,
+              audio,
+              fast,
+              tier: tier4k ? "4k" : undefined,
+              quality: modelInfo?.qualities.length ? quality : undefined,
+              negativePrompt: negative || undefined,
+              refImageUrls,
+              refVideoUrls,
+              refAudioUrls,
+              project,
+              label: `shot-${i + 1}`,
+              confirmed: true,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            if (data.error === "weekly_cap_exceeded")
+              throw new Error(`Weekly cap reached after ${fired} shot${fired === 1 ? "" : "s"} — raise it in Settings or run the rest next week.`);
+            if (data.error === "monthly_pool_exceeded")
+              throw new Error(`Monthly team pool exhausted after ${fired} shot${fired === 1 ? "" : "s"}.`);
+            throw new Error(data.error ?? `HTTP ${res.status}`);
+          }
+          if (typeof data.jobId === "number") lastId = data.jobId;
+          fired++;
+        }
+        setSeqSpendOpen(false);
+        setShots([]);
+        if (lastId != null) setLastJobId(lastId);
+        ensureNotifyPermission();
+        toast({ kind: "ok", title: `${fired} shot${fired === 1 ? "" : "s"} on the line`, sub: `${money(seqTotalUsd)} · they land in the gallery as they finish` });
+        refresh();
+      } catch (err) {
+        if (fired > 0) {
+          setShots((prev) => prev.slice(fired));
+          refresh();
+        }
+        setError(err instanceof Error ? err.message : "Sequence failed");
+      } finally {
+        setSeqBusy(false);
+      }
+    },
+    [est, budget, shots, seqBusy, seqName, isVideo, employee, brandStyle, motionNote, model, numImages, seconds, ratio, audio, fast, tier4k, quality, negative, refImageUrls, refVideoUrls, refAudioUrls, modelInfo, toast, refresh, seqTotalUsd]
+  );
+
   const warning = overCap ? (
     <span style={{ color: "var(--bad-tx)" }}>⚠️ Over this week&apos;s remaining budget</span>
   ) : projectedRatio >= 0.75 ? (
@@ -985,6 +1094,102 @@ export default function CreatePage() {
           </button>
         </div>
 
+        {/* SEQUENCE — opt-in: build a film shot by shot; shots share role, brand & refs */}
+        <div style={{ marginTop: 16 }}>
+          <div className="between">
+            <button
+              type="button"
+              onClick={() => setSeqOpen((v) => !v)}
+              aria-expanded={seqOpen}
+              className="t-label"
+              style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 7, background: "none", cursor: "pointer" }}
+            >
+              <Icon name="workflows" size={13} /> Sequence — build the film shot by shot
+              {shots.length > 0 && <span className="chip soft" style={{ height: 19 }}>{shots.length}</span>}
+              <Icon name={seqOpen ? "chevronDown" : "chevronRight"} size={13} />
+            </button>
+            <span className="t-xs muted">opt-in · holds role, brand &amp; refs across shots</span>
+          </div>
+
+          {seqOpen && (
+            <div className="card card-pad" style={{ marginTop: 10 }}>
+              <div className="row gap2 wrap" style={{ alignItems: "stretch" }}>
+                {shots.map((s, i) => (
+                  <div
+                    key={s.id}
+                    style={{ width: 150, padding: 9, borderRadius: "var(--r-md)", border: "1px solid var(--line-2)", background: "var(--bg-1)", display: "flex", flexDirection: "column", gap: 6 }}
+                  >
+                    <div className="between">
+                      <span className="t-xs mono" style={{ color: "var(--accent-hi)" }}>Shot {i + 1}</span>
+                      <div className="row gap1">
+                        <button type="button" className="icon-btn ghost" style={{ width: 22, height: 22 }} title="Edit this shot" onClick={() => editShot(s.id)}>
+                          <Icon name="settings" size={12} />
+                        </button>
+                        <button type="button" className="icon-btn ghost" style={{ width: 22, height: 22 }} title="Remove" onClick={() => removeShot(s.id)}>
+                          <Icon name="x" size={12} />
+                        </button>
+                      </div>
+                    </div>
+                    <span className="t-xs" style={{ color: "var(--tx-2)", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 42 }}>
+                      {s.prompt}
+                    </span>
+                    {isVideo && s.motion && (
+                      <span className="chip soft" style={{ height: 18, alignSelf: "flex-start" }}>
+                        {MOTION_PRESETS.find((m) => m.id === s.motion)?.label}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={!prompt.trim()}
+                  onClick={addShot}
+                  title={prompt.trim() ? "Add the current prompt as the next shot" : "Type a prompt above first"}
+                  style={{ width: 150, minHeight: 92, borderRadius: "var(--r-md)", border: "1px dashed var(--line-3)", background: "transparent", color: prompt.trim() ? "var(--accent-hi)" : "var(--tx-3)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, cursor: prompt.trim() ? "pointer" : "not-allowed" }}
+                >
+                  <Icon name="create" size={18} />
+                  <span className="t-xs">Add shot</span>
+                </button>
+              </div>
+
+              <div className="between wrap" style={{ marginTop: 14, gap: 12 }}>
+                <label className="row gap2" style={{ alignItems: "center" }}>
+                  <span className="t-xs muted">Sequence name</span>
+                  <input className="input" value={seqName} onChange={(e) => setSeqName(e.target.value)} style={{ height: 30, width: 160, fontSize: 12.5 }} />
+                </label>
+                <div className="row gap3" style={{ alignItems: "center" }}>
+                  <div className="composer-cost mono" style={{ textAlign: "right" }}>
+                    <span className="amt">{shots.length > 0 && est ? money(seqTotalUsd) : "—"}</span>
+                    <span className="t-xs muted">
+                      {shots.length} shot{shots.length === 1 ? "" : "s"}{est ? ` · ${money(est.usd)} each` : ""}
+                    </span>
+                  </div>
+                  <Btn
+                    variant="primary"
+                    size="lg"
+                    disabled={seqBusy || shots.length === 0 || !est || seqOverCap}
+                    onClick={() => runSequence(false)}
+                    title={seqOverCap ? "Over this week's remaining budget" : "Queue every shot in order"}
+                  >
+                    {seqBusy ? "Queueing…" : seqOverThreshold ? "Review spend" : "Run sequence"}
+                    <Icon name="arrowRight" size={16} />
+                  </Btn>
+                </div>
+              </div>
+              {seqOverCap && (
+                <p className="t-xs" style={{ color: "var(--bad-tx)", marginTop: 8 }}>
+                  ⚠️ The full sequence is over this week&apos;s remaining budget — trim shots or raise the cap in Settings.
+                </p>
+              )}
+              {shots.length === 0 && (
+                <p className="t-xs muted" style={{ marginTop: 10 }}>
+                  Compose a shot above, hit <b>Add shot</b>, repeat. Every shot keeps the same role, brand and references — only the prompt and camera change. Then run them all in order.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
         {error && <p className="err" style={{ marginTop: 12, textAlign: "center" }}>⚠️ {error}</p>}
 
         <ResultDock
@@ -1159,6 +1364,20 @@ export default function CreatePage() {
           busy={busy}
           onCancel={() => setSpendOpen(false)}
           onConfirm={() => submit(true)}
+        />
+      )}
+
+      {seqSpendOpen && est && budget && (
+        <SpendTakeover
+          estimate={seqTotalUsd}
+          modelLabel={`${modelInfo?.label ?? model} · ${shots.length} shots`}
+          spec={isVideo ? `${shots.length}×${seconds}s · ${ratio}` : `${shots.length}×${numImages} · ${ratio}`}
+          afterWeek={budget.spentWeekUsd + seqTotalUsd}
+          weeklyCap={budget.settings.weeklyCapUsd}
+          overCap={seqOverCap}
+          busy={seqBusy}
+          onCancel={() => setSeqSpendOpen(false)}
+          onConfirm={() => runSequence(true)}
         />
       )}
     </div>
