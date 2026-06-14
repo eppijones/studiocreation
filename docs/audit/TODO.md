@@ -66,9 +66,11 @@ account, or is a multi-day feature. Anything touching CLAUDE.md's constitution i
 - **B11 — A/B "make 3 hook variants" preset.**
 
 ### UX / platform
-- **B12 — Job cancel** end-to-end (fal queue cancel + status reconcile + UI button). Engineering
-  is straightforward but spans webhook/poll/UI; scoped as its own change for safe verification.
-- **B13 — First-run onboarding + `/roles` discovery page** to make the nine-employees cast legible.
+- [x] **B12 — Job cancel** end-to-end — DONE (continuation). Provider `cancelJob` + `POST
+  /api/jobs/[id]`, `canceled` status (race-safe, budget-excluded), Cancel buttons in queue + Create.
+- [x] **B13 — `/roles` discovery page** — DONE (continuation). Lists the cast + `?role=` preselect +
+  nav entry. _(First-run onboarding tour still open — see below.)_
+- **B13b — First-run onboarding tour** (dismissible "roles → create → queue → review → deliver").
 - **B14 — Full mobile/responsive pass** at 390px across all 13 screens.
 - **B15 — Accessibility pass** (skip link, focus rings, non-colour status, axe-core audit).
 - **B16 — Workflow node editor** (outputs feed inputs) — the big Open-Gen-AI "Workflow Studio."

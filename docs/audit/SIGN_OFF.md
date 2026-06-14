@@ -13,6 +13,13 @@ _Date: 2026-06-14 · Branch: `studio-audit-fixes` (off `fix/model-constraints-cr
 | 5 | Cinema camera-control prompt modifiers (shot/lens/light) in Create | feature/P1 | `app/create/page.tsx` |
 | 6 | Reconcile BREAKDOWN/PLAN docs with shipped reality | docs | `BREAKDOWN.md`, `PLAN.md` |
 
+### Continuation (after first sign-off, same session)
+Two BACKLOG items were pulled forward and shipped + verified:
+- **B12 Job cancel** — cancel an in-flight job end-to-end (provider + API + `canceled` status +
+  UI). Resolves the UI/UX lens's top remaining objection.
+- **B13 `/roles` discovery page** — makes the nine-employees cast legible; `?role=` preselect.
+  Resolves the legibility half of that objection (a first-run *tour* remains backlog, B13b).
+
 ### Verification (all green)
 - `pnpm build` ✅ · `pnpm typecheck` ✅ · `pnpm lint` ✅ (0/0) · `pnpm test` ✅ (36/36)
 - Fresh `next dev` boots clean: APIs return 200, **zero console errors**, no workspace-root warning.

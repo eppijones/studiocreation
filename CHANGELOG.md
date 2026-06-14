@@ -9,6 +9,14 @@ Autonomous four-lens audit + hardening pass. See `docs/audit/` for the full
 audit, gap matrix, TODO split, and sign-off.
 
 ### Added
+- **Cancel an in-flight generation** — Provider `cancelJob` + `POST /api/jobs/[id]`
+  marks a job `canceled` (best-effort fal cancel, race-safe vs a completing
+  webhook/poll); Cancel buttons on the queue rows and the Create live strip;
+  `Canceled` pill; canceled jobs are excluded from budget spend.
+- **`/roles` discovery page** — lists the nine specialists with the model/ratio
+  each routes to and the house style it appends; "Use in Create" deep-links to
+  `/create?role=<id>`, which preselects the role. New Roles nav entry. Closes the
+  nine-employees legibility gap.
 - **Cinema camera-control modifiers** in the Create composer — shot size, lens,
   and lighting presets that append to the prompt (like brand style / motion),
   for both image and video. $0, pure prompt composition.
