@@ -268,6 +268,7 @@ export default function CreatePage() {
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const hydratedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const roleParamRef = useRef(false);
   const shotIdRef = useRef(1);
 
   const modelInfo = MODELS.find((m) => m.id === model);
@@ -360,6 +361,26 @@ export default function CreatePage() {
       .then((d) => setBrandList(d.brands ?? []))
       .catch(() => {});
   }, []);
+
+  // Preselect a role when arriving from /roles (?role=<id>) — apply once the
+  // roster has loaded so the preset (model / ratio / seconds) resolves.
+  useEffect(() => {
+    if (roleParamRef.current || employees.length === 0) return;
+    const roleId = new URLSearchParams(window.location.search).get("role");
+    if (!roleId) {
+      roleParamRef.current = true;
+      return;
+    }
+    const emp = employees.find((e) => e.id === roleId);
+    if (emp?.studio) {
+      setEmployeeId(emp.id);
+      if (MODELS.some((m) => m.id === emp.studio!.model)) setModel(emp.studio!.model);
+      setRatio(emp.studio!.ratio);
+      if (emp.studio!.seconds) setSeconds(emp.studio!.seconds);
+    }
+    roleParamRef.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [employees]);
 
   // Each role wears its own best work. Pull the studio's highest-scoring keeper
   // (approved / delivered, or 8+) rendered under each role — images only, so a
