@@ -10,7 +10,7 @@ import { Media } from "../components/Media";
 import { Icon } from "../components/Icon";
 import { JobProgress } from "../components/JobProgress";
 import { ensureNotifyPermission } from "../components/notify";
-import { hueFor, money, usd, modelShort, relTime, isInFlight, glowVars, type ClientJob, type ClientJobAsset } from "../components/studio";
+import { hueFor, money, usd, modelShort, relTime, isInFlight, glowVars, cancelJob, type ClientJob, type ClientJobAsset } from "../components/studio";
 
 // All models (incl. finishing) so role presets like Upscaler resolve; the
 // composer router renders every non-finishing fal model (finishing runs from /deliver).
@@ -1274,6 +1274,13 @@ export default function CreatePage() {
           onIterate={iterateHere}
           onKeep={keepAsset}
           onAnimate={animateAsset}
+          onCancel={async (jobId) => {
+            const status = await cancelJob(jobId);
+            if (status === "canceled") toast({ kind: "info", title: "Canceled", sub: "Stopped before it finished" });
+            else if (status === "done") toast({ kind: "ok", title: "Already landed", sub: "It finished first" });
+            else toast({ kind: "bad", title: "Couldn’t cancel", sub: "It may have already finished" });
+            refresh();
+          }}
         />
       </div>
 
@@ -1470,12 +1477,14 @@ function ResultDock({
   onIterate,
   onKeep,
   onAnimate,
+  onCancel,
 }: {
   jobs: ClientJob[];
   lastJobId: number | null;
   onIterate: () => void;
   onKeep: (assetId: number) => void;
   onAnimate: (asset: ClientJobAsset) => void;
+  onCancel: (jobId: number) => void;
 }) {
   const live = jobs.filter((j) => isInFlight(j.status)).slice(0, 3);
   const RECENT_MS = 5 * 60_000;
@@ -1519,7 +1528,14 @@ function ResultDock({
               <JobProgress job={j} />
             </div>
           </div>
-          <span className="t-xs muted mono" style={{ flex: "none" }}>live</span>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ flex: "none" }}
+            onClick={() => onCancel(j.id)}
+            title="Stop this generation"
+          >
+            <Icon name="x" size={13} /> Cancel
+          </button>
         </div>
       ))}
 

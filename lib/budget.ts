@@ -52,7 +52,7 @@ export async function getBudgetState(operator?: string): Promise<BudgetState> {
       MIN(created_at) FILTER (
         WHERE created_at >= date_trunc('week', now() AT TIME ZONE 'utc')) AS first_week
     FROM jobs
-    WHERE status != 'error'
+    WHERE status NOT IN ('error', 'canceled')
   `;
   const spentWeekUsd = Number(rows[0].week);
   const spentMonthUsd = Number(rows[0].month);

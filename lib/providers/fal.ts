@@ -3,6 +3,7 @@ import type {
   GenerateImageInput,
   GenerateImageResult,
   Provider,
+  QueueDetails,
   QueueStatus,
   SubmitJobInput,
 } from "./types";
@@ -55,8 +56,21 @@ export const falProvider: Provider = {
     return status.status as QueueStatus;
   },
 
+  async getQueueDetails(model: string, requestId: string): Promise<QueueDetails> {
+    const status = await fal.queue.status(model, { requestId, logs: false });
+    const pos = (status as { queue_position?: number }).queue_position;
+    return {
+      status: status.status as QueueStatus,
+      queuePosition: typeof pos === "number" ? pos : null,
+    };
+  },
+
   async getJobResult(model: string, requestId: string): Promise<Record<string, unknown>> {
     const result = await fal.queue.result(model, { requestId });
     return result.data as Record<string, unknown>;
+  },
+
+  async cancelJob(model: string, requestId: string): Promise<void> {
+    await fal.queue.cancel(model, { requestId });
   },
 };

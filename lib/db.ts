@@ -6,7 +6,7 @@ if (typeof window !== "undefined") {
 
 export const sql = neon(process.env.DATABASE_URL!);
 
-export type JobStatus = "queued" | "running" | "done" | "error";
+export type JobStatus = "queued" | "running" | "done" | "error" | "canceled";
 
 export interface JobRow {
   id: number;
@@ -24,7 +24,11 @@ export interface JobRow {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  finalizing_at: string | null;
 }
+
+/** Review pipeline: new → (flagged | hidden | approved) → delivered. */
+export type AssetStatus = "new" | "flagged" | "hidden" | "approved" | "delivered";
 
 export interface AssetRow {
   id: number;
@@ -36,5 +40,10 @@ export interface AssetRow {
   height: number | null;
   duration_s: number | null;
   score: number | null;
+  review_note: string | null;
+  status: AssetStatus;
+  tags: string[];
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
 }

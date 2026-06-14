@@ -25,11 +25,21 @@ export interface SubmitJobInput {
 
 export type QueueStatus = "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED";
 
+export interface QueueDetails {
+  status: QueueStatus;
+  /** Position in the fal queue while IN_QUEUE; null once running/done or unknown. */
+  queuePosition: number | null;
+}
+
 export interface Provider {
   name: string;
   generateImage(input: GenerateImageInput): Promise<GenerateImageResult>;
   /** Async queue submission; completion arrives via webhook (or polling fallback). */
   submitJob(input: SubmitJobInput): Promise<{ requestId: string }>;
   getJobStatus(model: string, requestId: string): Promise<QueueStatus>;
+  /** Status + queue position in one call, for live progress. */
+  getQueueDetails(model: string, requestId: string): Promise<QueueDetails>;
   getJobResult(model: string, requestId: string): Promise<Record<string, unknown>>;
+  /** Best-effort cancel of a queued/running request. Throws if already gone. */
+  cancelJob(model: string, requestId: string): Promise<void>;
 }
