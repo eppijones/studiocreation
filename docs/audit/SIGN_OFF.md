@@ -14,11 +14,30 @@ _Date: 2026-06-14 · Branch: `studio-audit-fixes` (off `fix/model-constraints-cr
 | 6 | Reconcile BREAKDOWN/PLAN docs with shipped reality | docs | `BREAKDOWN.md`, `PLAN.md` |
 
 ### Continuation (after first sign-off, same session)
-Two BACKLOG items were pulled forward and shipped + verified:
-- **B12 Job cancel** — cancel an in-flight job end-to-end (provider + API + `canceled` status +
-  UI). Resolves the UI/UX lens's top remaining objection.
-- **B13 `/roles` discovery page** — makes the nine-employees cast legible; `?role=` preselect.
-  Resolves the legibility half of that objection (a first-run *tour* remains backlog, B13b).
+BACKLOG items pulled forward and shipped (build/typecheck/lint/test green):
+- **B12 Job cancel** — cancel an in-flight job end-to-end (provider + API + `canceled` status + UI).
+- **B13 `/roles` discovery page** — nine-employees cast made legible; `?role=` preselect.
+- **B13b First-run onboarding banner** — dismissible flow nudge in the shell.
+- **B15 Accessibility** — skip-to-content link + consistent keyboard focus ring.
+- **B18 Reference-URL allowlist** — refs restricted to studio Blob/fal hosts.
+- **B21 Session token expiry** — signed issued-at + 30-day window (+7 tests).
+
+Together these resolve the UI/UX lens's top objections (job cancel, legibility, first-run) and two
+deferred-hardening items. Remaining backlog is now either multi-day (workflow node editor,
+storyboard→shots, timeline, reference-sheet generator, real brand formula), decision/credential-gated
+(lipsync endpoint, caption transcription, platform-preset specifics, speed-to-publish OAuth), or
+constitution-conflicting (Higgsfield provider) — see `TODO.md` for the crisp asks.
+
+### ⚠️ Verification note (B21 side-effect)
+The session-token change (B21) **invalidated the existing preview login** — exactly its intended
+"re-authenticate once" behavior, and good evidence it works (the app correctly redirects to `/login`).
+As a result, the **authenticated-shell UI shipped in the continuation** (onboarding banner, skip link,
+cancel buttons, `/roles` while logged in) was verified by **build + typecheck + lint + tests + code
+review**, and the CSS/markup was confirmed loaded on `/login`, but **not re-confirmed visually in the
+authenticated shell** — re-auth requires entering the studio password, which I will not do (prohibited
+action). Earlier (pre-B21) the camera rack, `/roles`, queue and create were visually verified live.
+**To eyeball the rest, log in once.** Note also: a cold `rm -rf .next && next build` can hit a Next 15
+webpack-cache flake (`index.pack_` ENOENT) on the first run; a retry builds clean — it is not a code defect.
 
 ### Verification (all green)
 - `pnpm build` ✅ · `pnpm typecheck` ✅ · `pnpm lint` ✅ (0/0) · `pnpm test` ✅ (36/36)

@@ -9,6 +9,12 @@ Autonomous four-lens audit + hardening pass. See `docs/audit/` for the full
 audit, gap matrix, TODO split, and sign-off.
 
 ### Added
+- **First-run onboarding banner** — a dismissible welcome nudge mapping the
+  studio flow (Role → Create → Generations → Gallery → deliver); persists
+  dismissal in localStorage, never on the login wall.
+- **Accessibility** — skip-to-content link as the shell's first focusable
+  element (jumps to `#main`) and a consistent `:focus-visible` keyboard ring
+  across links/buttons/inputs.
 - **Cancel an in-flight generation** — Provider `cancelJob` + `POST /api/jobs/[id]`
   marks a job `canceled` (best-effort fal cancel, race-safe vs a completing
   webhook/poll); Cancel buttons on the queue rows and the Create live strip;
@@ -27,6 +33,16 @@ audit, gap matrix, TODO split, and sign-off.
   pricing estimate + param coercion, fal input mapping + fast-lane routing,
   ETA banding, and the budget cap→level mapping.
 - Audit artifacts under `docs/audit/` and a top-level `CHANGELOG.md`.
+
+### Security
+- **Expiring session tokens** — the session token now embeds a signed issued-at
+  and is verified within a 30-day window (rejects expired + future-dated); the
+  old format was an HMAC over a constant, valid forever. Existing sessions
+  re-authenticate once.
+- **Reference-URL allowlist** — `/api/generate` only accepts https references on
+  the studio's own hosts (`*.blob.vercel-storage.com` / `fal.media`, override via
+  `STUDIO_REF_HOSTS`), so a client can't steer a paid render's input at an
+  arbitrary remote URL.
 
 ### Changed
 - **Permanent asset delete is now role-gated** — `DELETE /api/assets/[id]`

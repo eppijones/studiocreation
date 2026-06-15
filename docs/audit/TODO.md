@@ -70,15 +70,22 @@ account, or is a multi-day feature. Anything touching CLAUDE.md's constitution i
   /api/jobs/[id]`, `canceled` status (race-safe, budget-excluded), Cancel buttons in queue + Create.
 - [x] **B13 — `/roles` discovery page** — DONE (continuation). Lists the cast + `?role=` preselect +
   nav entry. _(First-run onboarding tour still open — see below.)_
-- **B13b — First-run onboarding tour** (dismissible "roles → create → queue → review → deliver").
-- **B14 — Full mobile/responsive pass** at 390px across all 13 screens.
-- **B15 — Accessibility pass** (skip link, focus rings, non-colour status, axe-core audit).
+- [x] **B13b — First-run onboarding banner** — DONE (continuation). Dismissible shell banner mapping
+  the flow with links; localStorage-persisted. (A full multi-step *tour* is still optional polish.)
+- **B14 — Full mobile/responsive pass** at 390px across all 13 screens. _Partial:_ touched screens
+  spot-checked at narrow width and stack cleanly; a systematic pass needs visual iteration.
+- [x] **B15 — Accessibility** — DONE (continuation). Skip-to-content link + consistent `:focus-visible`
+  ring; status pills already carry text. (A full axe-core sweep remains as deeper polish.)
 - **B16 — Workflow node editor** (outputs feed inputs) — the big Open-Gen-AI "Workflow Studio."
+  _Multi-day feature; out of single-pass scope._
 - **B17 — Real brand "formula"** (replace the demo stub in `app/brands/page.tsx` with a model call).
+  _Need:_ which model + a per-call cost (touches budget preflight).
 
-### Engineering hardening (low risk, deferred for focused review)
-- **B18 — Reference-URL allowlist** to the studio Blob host in `/api/generate` `cleanUrls`.
-- **B19 — Server-side reference-duration validation** on `/api/uploads`.
-- **B20 — Client fetch timeouts + manual retry** affordance; replace `window.confirm()` with the
-  app modal in gallery/deliver.
-- **B21 — Session token expiry** (HMAC payload currently has no timestamp; 1-year cookie).
+### Engineering hardening
+- [x] **B18 — Reference-URL allowlist** — DONE (continuation). https + Blob/fal hosts only, env-overridable.
+- [x] **B21 — Session token expiry** — DONE (continuation). Signed issued-at, 30-day window, +tests.
+- **B19 — Server-side reference-duration validation** on `/api/uploads`. _Deferred:_ needs ffprobe/a
+  media-probe dependency; size caps already enforced server-side, so low marginal value vs the dep weight.
+- **B20 — Client fetch timeouts + replace `window.confirm()`** with the app modal (gallery/deliver).
+  _Deferred:_ cosmetic — the native confirm works; the modal swap is risky to land without live
+  visual verification (see verification note in SIGN_OFF).
