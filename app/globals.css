@@ -212,6 +212,22 @@ select:focus-visible,
   transition: transform 0.16s ease;
 }
 .skip-link:focus { transform: translateY(0); outline: 2px solid #fff; outline-offset: 2px; }
+
+/* first-run onboarding nudge */
+.onboard-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 22px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line, var(--line-2));
+  background: var(--accent-wash);
+  border-radius: var(--r-md, 10px);
+  font-size: 13px;
+}
+.onboard-banner a { color: var(--accent-hi); font-weight: 600; }
+.onboard-banner a:hover { text-decoration: underline; }
+.onboard-ic { display: inline-grid; place-items: center; color: var(--accent-hi); flex: none; }
 input, textarea, select { font: inherit; color: inherit; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }

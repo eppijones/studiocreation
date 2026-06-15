@@ -105,6 +105,44 @@ function JobWatcher() {
   return null;
 }
 
+/** First-run nudge that makes the studio's flow legible. Dismissed for good
+ *  via localStorage; never shown on the login wall. Additive — fails closed. */
+function OnboardingBanner() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    try {
+      setShow(localStorage.getItem("sc.onboarded") !== "1");
+    } catch {
+      /* storage blocked — just don't show it */
+    }
+  }, []);
+  if (!show) return null;
+  const dismiss = () => {
+    try {
+      localStorage.setItem("sc.onboarded", "1");
+    } catch {
+      /* non-fatal */
+    }
+    setShow(false);
+  };
+  return (
+    <div className="onboard-banner">
+      <span className="onboard-ic"><Icon name="spark" size={15} /></span>
+      <div className="grow" style={{ minWidth: 0 }}>
+        <strong>New to the studio?</strong>{" "}
+        <span className="muted">Pick a</span> <Link href="/roles">Role</Link>{" "}
+        <span className="muted">→ describe it in</span> <Link href="/create">Create</Link>{" "}
+        <span className="muted">→ watch it land in</span> <Link href="/queue">Generations</Link>{" "}
+        <span className="muted">→ review in the</span> <Link href="/gallery">Gallery</Link>{" "}
+        <span className="muted">→ finish &amp; deliver.</span>
+      </div>
+      <button className="icon-btn ghost" onClick={dismiss} aria-label="Dismiss the welcome tip">
+        <Icon name="x" size={15} />
+      </button>
+    </div>
+  );
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
@@ -271,6 +309,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
           <main className="main" id="main" tabIndex={-1}>
             <div className={`activity-ribbon ${activeJobs > 0 ? "on" : ""}`} />
+            <OnboardingBanner />
             <div className="screen-wrap" key={pathname}>
               {children}
             </div>
