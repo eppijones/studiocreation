@@ -3,17 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { estimate, listModels, defaultSeconds, coerceSeconds, type ModelInfo } from "@/lib/pricing";
-import { resolveBrandStyle, brandPath, topLevelBrands, subBrandsOf, type BrandProfile } from "@/lib/brandTypes";
+import { resolveBrandStyle, brandPath, type BrandProfile } from "@/lib/brandTypes";
 import { useStudio } from "../components/AppShell";
 import { Card, Btn, CountUp, FuelGauge, Seg, Switch, useToast } from "../components/ui";
-import { Media } from "../components/Media";
 import { Icon } from "../components/Icon";
-import { JobProgress } from "../components/JobProgress";
 import { ensureNotifyPermission } from "../components/notify";
-import { hueFor, money, usd, modelShort, relTime, isInFlight, glowVars, cancelJob, type ClientJob, type ClientJobAsset } from "../components/studio";
+import { hueFor, money, usd, cancelJob, type ClientJobAsset } from "../components/studio";
 import { EXAMPLES, MOTION_PRESETS } from "./constants";
 import { type RefAsset, type RefKind, refKind } from "./types";
-import { ResultDock, ResultCard, ShapeControl, ReferenceDock, ModelPopover, BrandPicker, SpendTakeover } from "./components";
+import { ResultDock, ShapeControl, ReferenceDock, ModelPopover, BrandPicker, SpendTakeover } from "./components";
 
 // All models (incl. finishing) so role presets like Upscaler resolve; the
 // composer router renders every non-finishing fal model (finishing runs from /deliver).

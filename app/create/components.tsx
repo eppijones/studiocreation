@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { type ModelInfo } from "@/lib/pricing";
 import { brandPath, topLevelBrands, subBrandsOf, type BrandProfile } from "@/lib/brandTypes";
-import { Card, Btn, CountUp, FuelGauge, Seg, Switch } from "../components/ui";
+import { Btn, FuelGauge, Seg } from "../components/ui";
 import { Media } from "../components/Media";
 import { Icon } from "../components/Icon";
 import { JobProgress } from "../components/JobProgress";
