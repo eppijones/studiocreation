@@ -191,6 +191,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <StudioCtx.Provider value={{ operator, role, budget, jobs, jobsLoaded, activeJobs, needsScoring, refresh }}>
         <JobWatcher />
         <div className="shell">
+          <a href="#main" className="skip-link">Skip to content</a>
           <aside className="rail">
             <Link href="/" className="rail-brand">
               <span className="glyph">
@@ -268,7 +269,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </div>
           </aside>
 
-          <main className="main">
+          <main className="main" id="main" tabIndex={-1}>
             <div className={`activity-ribbon ${activeJobs > 0 ? "on" : ""}`} />
             <div className="screen-wrap" key={pathname}>
               {children}

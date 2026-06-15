@@ -181,6 +181,37 @@ html[data-skin="lumen"] body::before {
 ::selection { background: var(--accent-wash); color: var(--accent-hi); }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+/* keyboard focus ring — one consistent, visible ring for keyboard users (a11y).
+   Component-specific :focus-visible rules (tiles etc.) are more specific and win. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-hi);
+  outline-offset: 2px;
+  border-radius: 7px;
+}
+/* #main is a programmatic skip-link target — focusable but no ring. */
+#main:focus, #main:focus-visible { outline: none; }
+
+/* skip-to-content — off-screen until focused, then slides in top-left. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--accent-hi);
+  color: #fff;
+  font-weight: 600;
+  transform: translateY(-180%);
+  transition: transform 0.16s ease;
+}
+.skip-link:focus { transform: translateY(0); outline: 2px solid #fff; outline-offset: 2px; }
 input, textarea, select { font: inherit; color: inherit; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; border: 2px solid transparent; background-clip: content-box; }
