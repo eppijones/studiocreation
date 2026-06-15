@@ -20,10 +20,30 @@ function baseUrl(): string {
   return "http://localhost:3000";
 }
 
+// References must be the studio's own assets — Vercel Blob or fal media — never
+// an arbitrary remote URL a client could use to steer a paid render's input.
+// Extra hosts can be allowlisted via STUDIO_REF_HOSTS (comma-separated).
+const REF_HOST_RE = /(?:^|\.)(?:blob\.vercel-storage\.com|fal\.media)$/i;
+function allowedRefHost(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  if (REF_HOST_RE.test(url.hostname)) return true;
+  const extra = (process.env.STUDIO_REF_HOSTS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return extra.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`));
+}
+
 function cleanUrls(value: unknown, max: number): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+    .filter((u): u is string => typeof u === "string" && allowedRefHost(u))
     .slice(0, max);
 }
 
@@ -33,6 +53,10 @@ export async function POST(request: Request) {
   const model: string = body.model ?? "openai/gpt-image-2";
   const project: string = (body.project ?? "studio").trim() || "studio";
   const label: string = (body.label ?? "asset").trim() || "asset";
+  // The role (skill/employee) this job ran under — tags the render so the Create
+  // grid can wear each role's own best work. Free-form string, kept short.
+  const role: string | undefined =
+    typeof body.role === "string" && body.role.trim() ? body.role.trim().slice(0, 80) : undefined;
   const confirmed: boolean = body.confirmed === true;
 
   if (!prompt) {
@@ -114,7 +138,7 @@ export async function POST(request: Request) {
 
   const inserted = await sql`
     INSERT INTO jobs (provider, model, prompt, params, status, est_usd, operator, project, label)
-    VALUES ('fal', ${endpoint}, ${prompt}, ${JSON.stringify({ spec, falInput })}, 'queued',
+    VALUES ('fal', ${endpoint}, ${prompt}, ${JSON.stringify({ spec, falInput, role })}, 'queued',
             ${est.usd}, ${operator}, ${project}, ${label})
     RETURNING id
   `;
