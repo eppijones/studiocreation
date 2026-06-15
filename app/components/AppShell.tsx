@@ -145,6 +145,12 @@ function OnboardingBanner() {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
+  // Remount the page on TOP-LEVEL route changes only. Sub-paths like
+  // /gallery/<id> (the gallery deep-link) must NOT remount — Next 15 syncs
+  // history.replaceState into usePathname(), so keying the page on the full
+  // pathname would remount and reset in-page state (e.g. slam the open lightbox
+  // shut the instant it deep-links). Keying on the first segment fixes that.
+  const routeKey = pathname.split("/")[1] || "home";
 
   const [operator, setOperator] = useState("unknown");
   const [role, setRole] = useState("");
@@ -309,7 +315,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <main className="main" id="main" tabIndex={-1}>
             <div className={`activity-ribbon ${activeJobs > 0 ? "on" : ""}`} />
             <OnboardingBanner />
-            <div className="screen-wrap" key={pathname}>
+            <div className="screen-wrap" key={routeKey}>
               {children}
             </div>
           </main>

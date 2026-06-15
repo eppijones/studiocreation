@@ -843,7 +843,9 @@ function ReviewOverlay({
   }, []);
 
   return (
-    <div className="overlay" onClick={onClose}>
+    // Close only on a direct backdrop click — not on a click that bubbled from a
+    // child (and not the tile-click that opened the overlay leaking through).
+    <div className="overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="review sheet" onClick={(e) => e.stopPropagation()}>
         {/* ART — opening the review plays video with sound, from the start */}
         <div className={`review-art ${isFs ? "fs" : ""}`} ref={artRef}>
