@@ -4,6 +4,20 @@ Creative production engine — a Vercel-hosted generation studio with a fal
 adapter, cost preflight, and File-Law local archive. See [PLAN.md](PLAN.md)
 for the full foundation plan and `CLAUDE.md` for house rules.
 
+**v2 — Quality-Max:** the studio runs entirely on the **fal.ai API SDK** and
+its premium lineup, with full control. **There is no concept tier — every
+job runs on a top model** (GPT Image 2 is the default for images; Nano
+Banana Pro/2, Seedance 2.0 incl. reference-to-video, Kling 3.0 Pro, Veo 3.1
+Fast), plus a finishing tier (Topaz 4K + fps interpolation). Iterate cheaply
+by dialing quality down on the same model (GPT Image 2 `quality=low` ≈ $0.01,
+video Fast lane), never by routing to a lesser model. Pages: `/` generate (tiered models,
+quality, reference picker), `/workflows` (storyboard, character pack,
+motion graphics, concept ladder), `/gallery` (✅ approve / 🚩 flag /
+🙈 hide + filters), `/deliver` Finalize Center (4K masters, platform
+exports incl. 2.35:1 cinemascope, tags, 🚀 delivered), `/settings`
+budget governance (roles: creative/producer/finance/admin; monthly pool,
+daily cap, per-operator guide — editable live by finance/admin).
+
 ## Stack
 
 - Next.js (App Router) + TypeScript, deployed on Vercel (`studiocreation`)
@@ -33,7 +47,7 @@ app/                  Next.js app (generate page + /api/generate)
 lib/                  pricing estimator + provider adapters
 config/pricing.json   model price table (editable)
 .claude/skills/       the 9 studio employees (Agent Skills)
-scripts/              hf_pull.sh (Higgsfield MCP pull → manifest)
+scripts/              fal_pull.sh (fal MCP pull → manifest) · studio_sync.sh (Blob → File Law)
 assets/               File-Law archive + manifest.jsonl (local truth)
 ```
 

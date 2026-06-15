@@ -28,8 +28,8 @@
   /* text */
   --tx-1: #f1f3f9;
   --tx-2: #aab1c2;
-  --tx-3: #737b90;
-  --tx-4: #494f61;
+  --tx-3: #868fa4;
+  --tx-4: #5c6377;
 
   /* accent (cobalt) */
   --accent: #5b6cff;
@@ -110,8 +110,8 @@ html[data-skin="lumen"] {
 
   --tx-1: #21242b;
   --tx-2: #5c6270;
-  --tx-3: #8a909d;
-  --tx-4: #aeb3bf;
+  --tx-3: #6e7584;
+  --tx-4: #8b909e;
 
   --accent: #5b6cff;
   --accent-hi: #4655f0;

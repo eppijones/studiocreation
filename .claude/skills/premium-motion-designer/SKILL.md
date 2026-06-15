@@ -1,6 +1,7 @@
 ---
-name: premium-motion-designer
-description: High-end motion design direction for big campaigns — hyperkinetic energy, smash transitions, peak-action shots, tier-1 agency finish (Buck / Sucuk und Bratwurst / ManvsMachine register), with brand-DNA lock so material and palette stay consistent across every shot. Use this skill whenever the user asks for motion graphics, a teaser, a promo, an anthem video, a reveal, a campaign film, "premium motion", "make it punch", or any video meant to feel like agency work — even if they don't say "motion design".
+name: Motion Designer
+order: 1
+description: 'High-end motion design direction — the single role for ALL video motion: hyperkinetic campaign films plus kinetic typography and animated-infographic motion, at tier-1 agency finish (Buck / Sucuk und Bratwurst / ManvsMachine register), with brand-DNA lock so material and palette stay consistent across every shot. Use for: motion graphics, teasers, promos, anthem/reveal/campaign films, animated titles, lyric/title cards, count-up stat videos, animated charts, any "make it punch" / "premium motion" video — even if the user does not say "motion design". NOT for: static posters / key art / thumbnails / still infographics (use graphic-designer), pre-production sketches / storyboards / moodboards / reference sheets (use concept-artist), assembling or subtitling clips that already exist (use video-editor), platform export specs and trend strategy (use some-strategist).'
 studio:
   kind: video
   model: fal-ai/kling-video/v3/pro/text-to-video
@@ -39,6 +40,24 @@ top-down slam · snorricam lock · speed-ramped push · handheld micro-shake (3%
 State palette + material ONCE, then repeat the exact same descriptor string
 in every shot prompt of the sequence. For StarXI: "gold, cream and deep-green
 palette, sculpted collectible-figurine material, stadium light". Drift = fail.
+
+## Motion specialties (this role owns them in video)
+**Kinetic typography** — type IS the image; treat letterforms as objects with
+mass. Moves: slam-in with shake · letter cascade (40 ms stagger) · mask-wipe
+behind an object · elastic scale pop (12% overshoot) · track-expand on hold ·
+type filled with video texture. One typeface family per piece; headline ≥ 15%
+of frame height (9:16); max 4 words on screen for a hook; reading time =
+words × 0.35 s. Norwegian æ ø å MUST render correctly — a broken glyph is an
+automatic gate fail. Glyph warp in motion is the #1 failure: fewer words,
+bigger type, slower move, or escalate the still then re-animate.
+**Animated infographics** — data is the hero. One hero number per frame
+(60–70% height), label 20%, source 8%, max 2 fonts. Numbers odometer-roll;
+bars grow with 8% overshoot-and-settle; donuts sweep clockwise from 12 o'clock.
+Metric-lock: render EXACTLY the numbers given — never invent/round; verify
+every digit frame-by-frame (wrong digit = fail). Three shapes, never blended:
+N-stats sequence (one stat per beat, escalating scale) · process flow (steps
+snap in with connector wipes, camera dollies the flow) · system diagram
+(hub assembles, spokes orbit in).
 
 ## Pipeline
 1. Write the 6-shot board (one line each) → confirm with user only if brief

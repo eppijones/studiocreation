@@ -25,7 +25,7 @@ curl -fsS -c "$COOKIES" -X POST "$STUDIO_URL/api/auth" \
   -d "{\"password\":\"$STUDIO_PASSWORD\",\"operator\":\"sync\"}" >/dev/null
 
 if [ "${1:-pull}" = "push" ]; then
-  # Upload local manifest rows (MCP/Higgsfield work) into the cloud ledger.
+  # Upload local manifest rows (agent/MCP-driven fal work) into the cloud ledger.
   [ -f assets/manifest.jsonl ] || { echo "no manifest to push"; exit 0; }
   curl -fsS -b "$COOKIES" -X POST "$STUDIO_URL/api/import/manifest" \
     -H 'Content-Type: application/x-ndjson' \

@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
 
 // /api/reconcile does its own auth (studio session OR Vercel cron secret).
-const PUBLIC_PATHS = ["/login", "/api/auth", "/api/webhooks/fal", "/api/reconcile"];
+// /api/showcase is intentionally public — it powers the pre-auth login wall and
+// only exposes renders the studio curated with the `showcaser` tag.
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/showcase", "/api/webhooks/fal", "/api/reconcile"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -26,5 +28,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Skip Next internals and any static asset with an image extension — public
+  // files like /roles/<id>.webp (role-tile art) must serve without the auth gate.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpe?g|gif|webp|avif|ico)$).*)"],
 };

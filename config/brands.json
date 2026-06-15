@@ -2,21 +2,110 @@
   "profiles": {
     "none": {
       "label": "No brand",
+      "kind": "none",
       "style": "",
       "palette": [],
       "notes": ""
     },
+    "portalone": {
+      "label": "PortalOne",
+      "kind": "project",
+      "website": "https://www.portalone.com",
+      "tagline": "The optimistic imagination of the 80s",
+      "style": "PortalOne house style: 1980s retro-futurist synthwave / outrun aesthetic reimagined with modern CGI polish — glowing neon edges, chrome and holographic surfaces, deep night-blue to black starfield backdrops, hot magenta (#FE00A5), electric cyan (#00E8FF) and violet (#C13BFF) light, cream (#F7FFD3) highlights, lens flares and bloom, sunset perspective grids, volumetric haze; everything tactile and dimensional, never flat — skeuomorphic depth, playful scale, optimistic adventurous arcade-gaming energy",
+      "motion": "Kinetic neon motion — light streaks and parallax depth, retro grid fly-throughs, glossy chrome reflections, lens-flare wipes, on-beat energetic pacing; sound design and object glow carry the story",
+      "palette": ["#FE00A5", "#00E8FF", "#C13BFF", "#773EE0", "#7A98F4", "#F7FFD3", "#020202"],
+      "fonts": {
+        "heading": "Dharma Gothic M — Ex Bold Italic (caps only, keep short)",
+        "accent": "Outrun Future — Regular (80s brush script, sub-headings)",
+        "body": "Gilroy — Black / Medium"
+      },
+      "principles": [
+        "Reinterpret the source material — never a pastiche; remix the 80s with today's technology",
+        "Immerse in the experience — never flat, embrace skeuomorphism, play with scale, every object touchable",
+        "Atmosphere crafted through effects — lens flare, object glow, neon edging and sound design are crucial"
+      ],
+      "values": "Brumble = Brave + Humble · Confident, Encouraging, Creative",
+      "notes": "Backgrounds run deep night-blue to black with starfields; cream (#F7FFD3) reads as the warm light. Logo is the neon 'Portal ONE' chrome wordmark inside an inverted triangle — main logo on dark only, mono white on dark, mono black on bright. Material and palette stay locked across every shot of a sequence.",
+      "source": "guide",
+      "subBrands": ["portalone-centipede", "portalone-blockbuster", "portalone-thebeat", "portalone-rally", "portalone-arcadeshow", "portalone-quiztopia"]
+    },
+    "portalone-centipede": {
+      "label": "Centipede",
+      "kind": "game",
+      "parent": "portalone",
+      "tagline": "Kill the centipedes with the amazing launcher",
+      "style": "Centipede game skin: vivid arcade pixel-art energy over PortalOne synthwave — lush green (#79B153) and bright sky-blue (#95DFF5) with hot-red (#BC2105) accents, a segmented glowing centipede creature, launcher action, fast and playful",
+      "palette": ["#79B153", "#95DFF5", "#BC2105"],
+      "fonts": { "display": "PIXELARY (pixel display font)" },
+      "source": "guide"
+    },
+    "portalone-blockbuster": {
+      "label": "Blockbuster",
+      "kind": "game",
+      "parent": "portalone",
+      "tagline": "Shoot the blocks down",
+      "style": "Blockbuster game skin: block-shooter arcade over PortalOne synthwave — purple (#7830CC), icy blue (#A6E1FF), teal (#2DA4AE) and warm tan (#C6AC78), stacked neon blocks exploding on impact, satisfying chunky depth",
+      "palette": ["#7830CC", "#A6E1FF", "#2DA4AE", "#C6AC78"],
+      "fonts": { "display": "PIXELARY (pixel display font)" },
+      "source": "guide"
+    },
+    "portalone-thebeat": {
+      "label": "The Beat",
+      "kind": "game",
+      "parent": "portalone",
+      "tagline": "Hit the beat on time with precision",
+      "style": "The Beat game skin: rhythm-game neon over PortalOne synthwave — magenta (#CC22B3), gold-yellow (#FFDD46) and electric blue, pulsing on-beat glow, equalizer bars and reactive light",
+      "palette": ["#CC22B3", "#FFDD46", "#2255BF"],
+      "fonts": { "display": "PIXELARY (pixel display font)" },
+      "source": "guide"
+    },
+    "portalone-rally": {
+      "label": "Rally",
+      "kind": "game",
+      "parent": "portalone",
+      "tagline": "Go fast, shoot your opponents, get high scores",
+      "style": "Rally game skin: high-speed racing arcade over PortalOne synthwave — hot yellow (#FAFF00) and gold (#FFC801), motion-blur speed lines, chrome car, aggressive and fast",
+      "palette": ["#FAFF00", "#FFC801", "#FCBFBF", "#92E5E5"],
+      "fonts": { "display": "STAR7 (display font)" },
+      "source": "guide"
+    },
+    "portalone-arcadeshow": {
+      "label": "ArcadeShow",
+      "kind": "game",
+      "parent": "portalone",
+      "tagline": "Lights, neon, game-show spectacle",
+      "style": "ArcadeShow skin: game-show spectacle over PortalOne synthwave — marquee bulb lights, magenta and gold, confetti sparkle, big-stage neon energy",
+      "palette": ["#FE00A5", "#FFC801", "#00E8FF"],
+      "source": "stub",
+      "notes": "Demo stub — refine palette/fonts from the ArcadeShow game guide when available."
+    },
+    "portalone-quiztopia": {
+      "label": "Quiztopia",
+      "kind": "game",
+      "parent": "portalone",
+      "tagline": "A playful world of trivia",
+      "style": "Quiztopia skin: friendly trivia world over PortalOne synthwave — cyan and violet, rounded neon question-mark motifs, warm and inviting",
+      "palette": ["#00E8FF", "#C13BFF", "#F7FFD3"],
+      "source": "stub",
+      "notes": "Demo stub — refine palette/fonts from the Quiztopia game guide when available."
+    },
     "starxi": {
       "label": "StarXI",
+      "kind": "project",
       "style": "StarXI brand: collectible figurine style, slim athletic build, sculpted cultural platform base, gold cream and deep green palette, shield crest with star and XI, stadium energy, premium-but-playful",
-      "palette": ["gold", "cream", "deep green"],
-      "notes": "Chroma key background: flat magenta #FF1FB4. 96 nation characters."
+      "palette": ["#D4AF37", "#F5EFD6", "#0B3D2E"],
+      "notes": "Chroma key background: flat magenta #FF1FB4. 96 nation characters.",
+      "source": "guide"
     },
     "strikelab": {
       "label": "StrikeLab",
+      "kind": "project",
+      "website": "https://strikelab.golf",
       "style": "StrikeLab brand: clean, technical, precise, modern golf aesthetic, minimal composition",
-      "palette": ["black", "white", "signal green"],
-      "notes": "strikelab.golf"
+      "palette": ["#0A0A0A", "#FFFFFF", "#39FF14"],
+      "notes": "strikelab.golf",
+      "source": "guide"
     }
   }
 }

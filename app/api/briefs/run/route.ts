@@ -35,9 +35,9 @@ export async function POST(request: Request) {
   }
 
   const budget = await getBudgetState();
-  if (brief.totalUsd > budget.remainingUsd) {
+  if (brief.totalUsd > budget.remainingWeekUsd || brief.totalUsd > budget.remainingMonthUsd) {
     return NextResponse.json(
-      { error: "daily_cap_exceeded", totalUsd: brief.totalUsd, budget },
+      { error: "cap_exceeded", totalUsd: brief.totalUsd, budget },
       { status: 403 }
     );
   }

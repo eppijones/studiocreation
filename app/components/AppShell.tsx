@@ -21,7 +21,6 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/gallery", label: "Gallery", icon: "image", badge: "score" },
 ];
 const DEEPER_NAV: NavItem[] = [
-  { href: "/overview", label: "Overview", icon: "dashboard" },
   { href: "/queue", label: "Generations", icon: "queue", badge: "run" },
   { href: "/roles", label: "Roles", icon: "wand" },
   { href: "/costs", label: "Costs", icon: "costs" },

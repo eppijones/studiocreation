@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { sql } from "@/lib/db";
-import pricing from "@/config/pricing.json";
 
 export const maxDuration = 60;
 
@@ -11,14 +10,10 @@ interface ManifestRow {
   model?: string;
   label?: string;
   cost_usd?: number;
-  cost_credits?: number;
   file?: string;
   url?: string;
   request_id?: string;
 }
-
-const HF_PACK_RATES = pricing.providers.higgsfield.usd_per_credit_by_pack as Record<string, number>;
-const DEFAULT_HF_RATE = HF_PACK_RATES["26"] ?? 0.052;
 
 function parseRows(text: string): ManifestRow[] {
   const trimmed = text.trim();
@@ -38,9 +33,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Body must be JSONL or a JSON array" }, { status: 400 });
   }
 
-  const url = new URL(request.url);
-  const packRate = HF_PACK_RATES[url.searchParams.get("pack") ?? ""] ?? DEFAULT_HF_RATE;
-
   let imported = 0;
   let skipped = 0;
 
@@ -49,9 +41,9 @@ export async function POST(request: Request) {
       skipped++;
       continue;
     }
-    const isHf = row.cost_credits !== undefined;
-    const provider = isHf ? "higgsfield" : "fal-mcp";
-    const usd = isHf ? (row.cost_credits ?? 0) * packRate : (row.cost_usd ?? 0);
+    // Agent/MCP-driven fal generations logged to the manifest, in dollars.
+    const provider = "fal-mcp";
+    const usd = row.cost_usd ?? 0;
     const requestId =
       row.request_id && row.request_id.length > 0
         ? row.request_id
@@ -81,5 +73,5 @@ export async function POST(request: Request) {
     imported++;
   }
 
-  return NextResponse.json({ imported, skipped, hfUsdPerCredit: packRate });
+  return NextResponse.json({ imported, skipped });
 }

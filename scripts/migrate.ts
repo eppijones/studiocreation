@@ -36,9 +36,35 @@ async function migrate() {
       created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
+
+  // v2 — asset lifecycle (review pipeline), tags, approval audit, finish lineage.
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'new'`;
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}'`;
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS approved_by TEXT`;
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`;
+  // For finish jobs (upscale/fps): which asset this one was derived from.
+  await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_asset_id INTEGER REFERENCES assets(id) ON DELETE SET NULL`;
+
+  // v3 — completion pipeline + review.
+  // Claim flag so a webhook and concurrent pollers can't double-finalize a job.
+  await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS finalizing_at TIMESTAMPTZ`;
+  // Auto quality/fidelity critique (companion to the existing assets.score).
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS review_note TEXT`;
+
+  // v2 — runtime-editable studio settings (budget governance lives here).
+  await sql`
+    CREATE TABLE IF NOT EXISTS settings (
+      key        TEXT PRIMARY KEY,
+      value      JSONB NOT NULL,
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+
   await sql`CREATE INDEX IF NOT EXISTS jobs_created_at_idx ON jobs (created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status)`;
   await sql`CREATE INDEX IF NOT EXISTS assets_job_id_idx ON assets (job_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS assets_status_idx ON assets (status)`;
   console.log("migration complete");
 }
 

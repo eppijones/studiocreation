@@ -1,0 +1,8 @@
+{
+  "weeklyCapUsd": 50,
+  "monthlyPoolUsd": 120,
+  "perOperatorWeeklyUsd": 50,
+  "confirmThresholdUsd": 1.25,
+  "noticePct": 0.6,
+  "warnPct": 0.85
+}

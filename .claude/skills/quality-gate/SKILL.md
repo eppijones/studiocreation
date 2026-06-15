@@ -1,9 +1,10 @@
 ---
 name: quality-gate
 description: The critical high-end delivery filter — scores every draft against a production rubric, decides retry vs escalate vs ship, and guards credit spend. MUST run before any hero render, any upscale, any "final", and whenever the user asks "is this good enough", "be critical", or seems unsure about a result. Also owns top-up and model-upgrade recommendations.
+system: true
 studio:
   kind: image
-  model: fal-ai/flux/schnell
+  model: openai/gpt-image-2
   ratio: "1:1"
   style: ""
 ---
@@ -14,7 +15,7 @@ You are the harshest reviewer in the room. "Pretty good for AI" = fail.
 The bar is: would a tier-1 agency put this on their reel?
 
 ## Procedure
-1. Download the result (`scripts/hf_pull.sh`).
+1. Download the result (`scripts/fal_pull.sh` / `scripts/studio_sync.sh`).
 2. Extract frames: `ffmpeg -i file.mp4 -vf fps=2 frames/f_%03d.png`
    (images: review the file directly).
 3. Read the frames. Score the rubric. Write a 3-line verdict.

@@ -11,6 +11,7 @@ import { Icon } from "../components/Icon";
 import { JobProgress } from "../components/JobProgress";
 import { ensureNotifyPermission } from "../components/notify";
 import { hueFor, money, usd, modelShort, relTime, isInFlight, glowVars, cancelJob, type ClientJob, type ClientJobAsset } from "../components/studio";
+import { EXAMPLES, MOTION_PRESETS } from "./constants";
 
 // All models (incl. finishing) so role presets like Upscaler resolve; the
 // composer router renders every non-finishing fal model (finishing runs from /deliver).
@@ -63,28 +64,6 @@ const MODE_DEFAULTS: Record<"image" | "video", { model: string; ratio: string }>
   video: { model: "fal-ai/veo3.1/fast", ratio: "9:16" },
 };
 
-// Empty-composer starters — a non-expert operator gets a running start instead of a blank box.
-const EXAMPLES: Record<"image" | "video", string[]> = {
-  image: [
-    "a studio render of a matte-black espresso machine on seamless white, soft key light",
-    "editorial portrait, dramatic rim light, shallow depth of field",
-    "isometric product hero, pastel palette, clean soft shadows",
-  ],
-  video: [
-    "a cinematic dolly through neon-lit rain, reflections on wet asphalt",
-    "slow orbit around a glass perfume bottle on a lit pedestal",
-    "kinetic title reveal, bold type snapping into place",
-  ],
-};
-
-// Camera/motion presets — first-class video direction, appended like house style.
-const MOTION_PRESETS: { id: string; label: string; phrase: string }[] = [
-  { id: "push", label: "Push-in", phrase: "slow push-in" },
-  { id: "orbit", label: "Orbit", phrase: "smooth orbital camera move" },
-  { id: "handheld", label: "Handheld", phrase: "handheld camera, subtle natural shake" },
-  { id: "locked", label: "Locked-off", phrase: "locked-off static camera" },
-  { id: "crash", label: "Crash zoom", phrase: "fast crash zoom" },
-];
 
 // Cinema camera direction — shot size / lens / lighting as prompt modifiers,
 // appended like house style. Works for stills and video (the Open-Gen-AI /
