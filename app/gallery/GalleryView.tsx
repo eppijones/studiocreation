@@ -36,7 +36,7 @@ interface GalleryAsset {
 }
 
 type KindFilter = "" | "image" | "video";
-type Layout = "masonry" | "grid";
+type Layout = "masonry" | "list";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "active", label: "Everything" },
@@ -453,7 +453,7 @@ export function GalleryView({ initialOpenId }: { initialOpenId?: number } = {}) 
             duration_s: a.duration_s,
             featured: a.tags.includes("showcaser"),
           }}
-          fit={layout === "masonry" ? "natural" : "contain"}
+          fit="natural"
           caption
           ariaLabel={`${a.project}/${a.label} — ${a.prompt || "render"}`}
           onClick={(e?: React.MouseEvent) => {
@@ -485,6 +485,92 @@ export function GalleryView({ initialOpenId }: { initialOpenId?: number } = {}) 
             }}
           >
             <Icon name="x" size={14} /> Hide
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Compact list row — the dense, scannable view. No mesh matte / colour halo:
+  // a small cover-fit thumb + prompt + meta, so many renders read at a glance.
+  const renderListRow = (a: GalleryAsset) => {
+    const isSel = selected.has(a.id);
+    const vid = isVideo(a.content_type);
+    const kept = a.status === "approved" || a.status === "delivered";
+    return (
+      <div
+        key={a.id}
+        className={`glist-row ${isSel ? "selected" : ""} ${a.status === "hidden" ? "dim" : ""}`}
+        role="button"
+        tabIndex={0}
+        aria-label={`${a.project}/${a.label} — ${a.prompt || "render"}`}
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || selected.size > 0) toggleSelect(a.id);
+          else setOpenId(a.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpenId(a.id);
+          }
+        }}
+      >
+        <button
+          className={`glist-check ${isSel ? "on" : ""}`}
+          aria-label={isSel ? "Deselect render" : "Select render"}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelect(a.id);
+          }}
+        >
+          {isSel && <Icon name="check" size={12} />}
+        </button>
+        <div className="glist-thumb">
+          {a.blob_url ? (
+            vid ? (
+              <video src={a.blob_url} muted loop playsInline />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={a.blob_url} alt="" loading="lazy" />
+            )
+          ) : (
+            <Icon name={vid ? "video" : "image"} size={15} />
+          )}
+          {vid && <span className="glist-play"><Icon name="play" size={9} /></span>}
+        </div>
+        <div className="glist-main">
+          <div className="glist-prompt">{a.prompt || `${a.project}/${a.label}`}</div>
+          <div className="glist-meta mono">
+            {modelShort(a.model)} · {a.operator} · {a.project}/{a.label} · {relTime(a.created_at)}
+          </div>
+        </div>
+        {kept && (
+          <span className="glist-used">
+            <Icon name="checkcircle" size={12} /> Used
+          </span>
+        )}
+        <div className="glist-actions">
+          <button
+            className={`glist-act use ${kept ? "on" : ""}`}
+            title="Use (U)"
+            aria-label="Use this render"
+            onClick={(e) => {
+              e.stopPropagation();
+              setStatus(a, "approved");
+            }}
+          >
+            <Icon name="checkcircle" size={15} />
+          </button>
+          <button
+            className={`glist-act ${a.status === "hidden" ? "on" : ""}`}
+            title="Hide (H)"
+            aria-label="Hide this render"
+            onClick={(e) => {
+              e.stopPropagation();
+              setStatus(a, "hidden");
+            }}
+          >
+            <Icon name="x" size={15} />
           </button>
         </div>
       </div>
@@ -528,7 +614,7 @@ export function GalleryView({ initialOpenId }: { initialOpenId?: number } = {}) 
           <Seg
             options={[
               { value: "masonry", label: "Masonry" },
-              { value: "grid", label: "Grid" },
+              { value: "list", label: "List" },
             ]}
             value={layout}
             onChange={(v) => setLayout(v as Layout)}
@@ -622,11 +708,19 @@ export function GalleryView({ initialOpenId }: { initialOpenId?: number } = {}) 
         {/* WALL */}
         <div style={{ minWidth: 0 }}>
           {loading ? (
-            <div className={layout === "masonry" ? "masonry" : "grid-4"}>
-              {SKELETON_ASPECTS.map((ar, i) => (
-                <div key={i} className="tile skeleton" style={{ aspectRatio: ar }} />
-              ))}
-            </div>
+            layout === "list" ? (
+              <div className="gallery-list">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="glist-row skeleton" />
+                ))}
+              </div>
+            ) : (
+              <div className="masonry">
+                {SKELETON_ASPECTS.map((ar, i) => (
+                  <div key={i} className="tile skeleton" style={{ aspectRatio: ar }} />
+                ))}
+              </div>
+            )
           ) : filtered.length === 0 && livePlaceholders.length === 0 ? (
             <div className="empty">
               <Icon name="gallery" size={40} />
@@ -641,8 +735,23 @@ export function GalleryView({ initialOpenId }: { initialOpenId?: number } = {}) 
                 </Btn>
               )}
             </div>
+          ) : layout === "list" ? (
+            <div className="gallery-list">
+              {livePlaceholders.map((j) => (
+                <div key={`live-${j.id}`} className="glist-row live" style={glowVars(j.operator)}>
+                  <span className="glist-check" aria-hidden />
+                  <div className="glist-thumb"><span className="glist-mesh" /></div>
+                  <div className="glist-main">
+                    <div className="glist-prompt">{j.prompt || "Generating…"}</div>
+                    <div style={{ marginTop: 5 }}><JobProgress job={j} compact /></div>
+                  </div>
+                  <span className="t-xs muted mono">live</span>
+                </div>
+              ))}
+              {filtered.map(renderListRow)}
+            </div>
           ) : (
-            <div className={layout === "masonry" ? "masonry" : "grid-4"}>
+            <div className="masonry">
               {livePlaceholders.map((j) => (
                 <LiveTile key={`live-${j.id}`} job={j} />
               ))}
