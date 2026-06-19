@@ -31,8 +31,34 @@ export const DELIVERY_PRESETS: DeliveryPreset[] = [
   { id: "square", label: "Square — 1:1 30fps", width: 1080, height: 1080, ratio: "1:1", fps: 30, fit: "crop", notes: "Feed-safe everywhere." },
 ];
 
-/** Local, $0 packaging step. Assumes the source is already the quality master. */
-export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName: string): string {
+/**
+ * Optional $0 color grade — built-in ffmpeg filters only (no external LUT
+ * files), so the recipe stays portable and free. Applied before scaling.
+ */
+export interface ColorLook {
+  id: string;
+  label: string;
+  /** ffmpeg filtergraph fragment, or "" for no grade. */
+  vf: string;
+}
+
+export const COLOR_LOOKS: ColorLook[] = [
+  { id: "none", label: "As-is", vf: "" },
+  { id: "teal-orange", label: "Teal & orange", vf: "colorbalance=bs=0.12:rs=-0.06:rh=0.10:bh=-0.08,eq=saturation=1.12:contrast=1.06" },
+  { id: "warm", label: "Warm filmic", vf: "colorbalance=rm=0.06:bm=-0.04,eq=saturation=1.08:contrast=1.04:gamma=1.02" },
+  { id: "cool", label: "Cool noir", vf: "eq=saturation=0.72:contrast=1.18:brightness=-0.02,colorbalance=bs=0.08:bh=0.05" },
+  { id: "vibrant", label: "Punchy", vf: "eq=saturation=1.25:contrast=1.08:gamma=1.01" },
+  { id: "bw", label: "B&W", vf: "hue=s=0,eq=contrast=1.12" },
+];
+
+/** The filtergraph fragment for a look id ("" when none / unknown). */
+export function lookVf(lookId: string | undefined): string {
+  return COLOR_LOOKS.find((l) => l.id === lookId)?.vf ?? "";
+}
+
+/** Local, $0 packaging step. Assumes the source is already the quality master.
+ *  `grade` is an optional COLOR_LOOK vf fragment, applied before the scale. */
+export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName: string, grade = ""): string {
   const { width: w, height: h, fps } = preset;
   let vf: string;
   if (preset.id === "scope-letterbox") {
@@ -43,6 +69,7 @@ export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName
   } else {
     vf = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fps=${fps}`;
   }
+  if (grade) vf = `${grade},${vf}`;
   return [
     `ffmpeg -i "${sourceUrl}"`,
     `-vf "${vf}"`,
@@ -52,12 +79,13 @@ export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName
   ].join(" \\\n  ");
 }
 
-export function ffmpegImageCommand(preset: DeliveryPreset, sourceUrl: string, outName: string): string {
+export function ffmpegImageCommand(preset: DeliveryPreset, sourceUrl: string, outName: string, grade = ""): string {
   const { width: w, height: h } = preset;
-  const vf =
+  let vf =
     preset.fit === "pad"
       ? `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black`
       : `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
+  if (grade) vf = `${grade},${vf}`;
   return `ffmpeg -i "${sourceUrl}" -vf "${vf}" -q:v 1 "${outName}"`;
 }
 

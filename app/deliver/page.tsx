@@ -9,6 +9,8 @@ import { Icon } from "../components/Icon";
 import { modelShort, money } from "../components/studio";
 import {
   DELIVERY_PRESETS,
+  COLOR_LOOKS,
+  lookVf,
   ffmpegCommand,
   ffmpegImageCommand,
   type FinishAction,
@@ -42,6 +44,7 @@ export default function DeliverPage() {
 
   const [assets, setAssets] = useState<DeliverAsset[]>([]);
   const [presetByAsset, setPresetByAsset] = useState<Record<number, string>>({});
+  const [lookByAsset, setLookByAsset] = useState<Record<number, string>>({});
   const [fpsByAsset, setFpsByAsset] = useState<Record<number, number>>({});
   const [tagDraft, setTagDraft] = useState<Record<number, string>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -154,17 +157,20 @@ export default function DeliverPage() {
             const isVideo = asset.content_type?.startsWith("video");
             const preset =
               DELIVERY_PRESETS.find((p) => p.id === presetByAsset[asset.id]) ?? DELIVERY_PRESETS[0];
+            const lookId = lookByAsset[asset.id] ?? "none";
+            const grade = lookVf(lookId);
             const derived = derivedOf(asset.id);
-            const outName = `${asset.project}_${asset.label}_${preset.id}.${isVideo ? "mp4" : "png"}`;
+            const lookSuffix = grade ? `_${lookId}` : "";
+            const outName = `${asset.project}_${asset.label}_${preset.id}${lookSuffix}.${isVideo ? "mp4" : "png"}`;
             const cmd = isVideo
-              ? ffmpegCommand(preset, asset.blob_url, outName)
-              : ffmpegImageCommand(preset, asset.blob_url, outName);
+              ? ffmpegCommand(preset, asset.blob_url, outName, grade)
+              : ffmpegImageCommand(preset, asset.blob_url, outName, grade);
             const fps = fpsByAsset[asset.id] ?? 30;
             const upscaleEst = isVideo
               ? Math.max(Math.ceil(asset.duration_s ?? 5), 1) * 0.08 * (fps >= 50 ? 2 : 1)
               : 0.08;
             const delivered = asset.status === "delivered";
-            const cmdKey = `${asset.id}-${preset.id}`;
+            const cmdKey = `${asset.id}-${preset.id}-${lookId}`;
 
             return (
               <Card key={asset.id}>
@@ -333,6 +339,19 @@ export default function DeliverPage() {
                           onClick={() => setPresetByAsset((prev) => ({ ...prev, [asset.id]: p.id }))}
                         >
                           {p.ratio} · {p.width}×{p.height}
+                        </Chip>
+                      ))}
+                    </div>
+                    {/* COLOR GRADE — optional $0 built-in look, baked into the same recipe */}
+                    <div className="row gap2 wrap" style={{ alignItems: "center" }}>
+                      <span className="t-xs muted" style={{ marginRight: 2 }}>Grade</span>
+                      {COLOR_LOOKS.map((l) => (
+                        <Chip
+                          key={l.id}
+                          on={lookId === l.id}
+                          onClick={() => setLookByAsset((prev) => ({ ...prev, [asset.id]: l.id }))}
+                        >
+                          {l.label}
                         </Chip>
                       ))}
                     </div>
