@@ -18,3 +18,22 @@ export interface RefAsset {
   label: string;
   status?: string;
 }
+
+/** Camera direction as creative INTENT, compiled to prompt language at submit
+ *  (cameraPhrase in constants.ts) — never raw model params. Three axes, because
+ *  three things actually change the frame:
+ *    framing — how much of the subject fills the frame (FRAMING_OPTIONS id)
+ *    depth   — 0 (deep focus, everything sharp) → 100 (shallow, creamy bokeh).
+ *              One continuous axis replacing the focal+aperture spec-sheet, so a
+ *              physically impossible frame (85mm at f/11 deep focus) can't be built.
+ *              `undefined` = no depth direction.
+ *    light   — mood / direction (LIGHT_OPTIONS id)
+ *  Every field optional — an empty recipe adds nothing to the prompt. */
+export interface CameraRecipe {
+  framing?: string;
+  depth?: number;
+  light?: string;
+}
+
+/** Which single axis a one-variable re-roll sweeps. */
+export type CameraAxis = "framing" | "depth" | "light";

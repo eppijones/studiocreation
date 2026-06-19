@@ -1,0 +1,100 @@
+/* =====================================================================
+   Tools — the platform toolkit hub. Token-driven (onyx + lumen).
+   ===================================================================== */
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: var(--s6);
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  margin: var(--s6) 0 var(--s3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sectionLabel:first-of-type { margin-top: 0; }
+.note {
+  color: var(--tx-4);
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 11px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+  gap: var(--s3);
+}
+
+.tool {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-1);
+  background: var(--bg-1);
+  text-decoration: none;
+  box-shadow: var(--el-1);
+  min-height: 154px;
+  transition: transform var(--t-base) var(--ease-out), border-color var(--t-fast), box-shadow var(--t-base);
+}
+.tool.link:hover {
+  transform: translateY(-3px);
+  border-color: var(--line-3);
+  box-shadow: var(--el-2);
+}
+.tool.soon { opacity: 0.7; cursor: default; }
+
+.toolTop { display: flex; align-items: center; gap: 10px; }
+.toolIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.toolName {
+  font-family: var(--font-display);
+  font-weight: 660;
+  font-size: 15px;
+  color: var(--tx-1);
+}
+.toolDesc {
+  font-size: 12.5px;
+  color: var(--tx-3);
+  line-height: 1.5;
+  flex: 1;
+}
+.toolFoot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+.soonPill {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-2);
+  color: var(--tx-3);
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: 1fr; }
+}

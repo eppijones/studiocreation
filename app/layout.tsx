@@ -24,8 +24,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudioCreation",
-  description: "Creative production engine — fal-powered generation studio",
+  title: "Portal One — Media Platform",
+  description: "Portal One — the unified media platform: AI create, library, finishing & delivery",
   icons: { icon: "/icon.svg" },
 };
 

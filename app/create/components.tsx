@@ -4,7 +4,7 @@
  *  stays focused on behaviour. These are presentational/prop-driven — they hold no
  *  page state; everything comes in via props. */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { type ModelInfo } from "@/lib/pricing";
 import { brandPath, topLevelBrands, subBrandsOf, type BrandProfile } from "@/lib/brandTypes";
@@ -14,6 +14,7 @@ import { Icon } from "../components/Icon";
 import { JobProgress } from "../components/JobProgress";
 import { money, usd, modelShort, relTime, isInFlight, glowVars, type ClientJob, type ClientJobAsset } from "../components/studio";
 import { type RefAsset, type RefKind, refKind } from "./types";
+import { buildFamilies, familyKey, familyOf, variantOf, variantSummary, VARIANT_META, type ModelFamily } from "./models";
 
 /* ---------- result dock: live progress + the freshest render, inline ----------
    Closes the create→see→iterate loop — the render lands HERE with actions, so the
@@ -168,6 +169,63 @@ export function ResultCard({
 }
 
 /* ---------- shape control: per-model duration (range / discrete) or image count ---------- */
+/* Click-to-type numeric value with a commit-on-blur/Enter draft, clamped to
+   [min,max]. Pairs with a slider so a value can be dragged OR typed exactly. */
+function NumberField({
+  value,
+  min,
+  max,
+  suffix,
+  ariaLabel,
+  onCommit,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  suffix?: string;
+  ariaLabel: string;
+  onCommit: (n: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const skip = useRef(false);
+  // Read the live input value on commit (not closed-over draft state) so a value
+  // typed and committed in the same tick still lands.
+  const commit = (raw: string) => {
+    if (skip.current) {
+      skip.current = false;
+      setDraft(null);
+      return;
+    }
+    const n = Number(raw);
+    if (raw.trim() !== "" && Number.isFinite(n)) onCommit(Math.min(max, Math.max(min, Math.round(n))));
+    setDraft(null);
+  };
+  return (
+    <span className="val-edit" title={`${min}–${max}${suffix ?? ""}`}>
+      <input
+        className="val-input"
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        aria-label={ariaLabel}
+        value={draft ?? String(value)}
+        onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onBlur={(e) => commit(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          else if (e.key === "Escape") {
+            skip.current = true;
+            e.currentTarget.blur();
+          }
+        }}
+      />
+      {suffix && <span className="val-suffix">{suffix}</span>}
+    </span>
+  );
+}
+
 export function ShapeControl({
   modelInfo,
   isVideo,
@@ -188,27 +246,46 @@ export function ShapeControl({
     if (max <= min) return null; // single-output models have nothing to choose
     return (
       <div className="dock-ctl">
-        <span>Count</span>
-        <input className="rng" type="range" min={min} max={max} value={numImages} onChange={(e) => onNumImages(Number(e.target.value))} />
-        <span className="val">{numImages}×</span>
+        <span className="dock-ctl-k">Count</span>
+        <input className="rng" type="range" min={min} max={max} value={numImages} aria-label="Number of images" onChange={(e) => onNumImages(Number(e.target.value))} />
+        <NumberField value={numImages} min={min} max={max} suffix="×" ariaLabel="Number of images" onCommit={onNumImages} />
       </div>
     );
   }
+  // Video — Length, plus a Count when the model can make more than one clip
+  // (the composer fires one render per clip).
+  const { min: cMin, max: cMax } = modelInfo?.numImages ?? { min: 1, max: 4 };
+  const countCtl =
+    cMax > cMin ? (
+      <div className="dock-ctl">
+        <span className="dock-ctl-k">Count</span>
+        <input className="rng" type="range" min={cMin} max={cMax} value={numImages} aria-label="Number of clips" onChange={(e) => onNumImages(Number(e.target.value))} />
+        <NumberField value={numImages} min={cMin} max={cMax} suffix="×" ariaLabel="Number of clips" onCommit={onNumImages} />
+      </div>
+    ) : null;
   const d = modelInfo?.durations ?? { mode: "range" as const, min: 1, max: 15 };
   if (d.mode === "discrete" && d.values?.length) {
     return (
-      <div className="dock-ctl">
-        <span>Length</span>
-        <Seg options={d.values.map((v) => ({ value: String(v), label: `${v}s` }))} value={String(seconds)} onChange={(v) => onSeconds(Number(v))} />
-      </div>
+      <>
+        <div className="dock-ctl">
+          <span className="dock-ctl-k">Length</span>
+          <Seg options={d.values.map((v) => ({ value: String(v), label: `${v}s` }))} value={String(seconds)} onChange={(v) => onSeconds(Number(v))} />
+        </div>
+        {countCtl}
+      </>
     );
   }
+  const min = d.min ?? 1;
+  const max = d.max ?? 15;
   return (
-    <div className="dock-ctl">
-      <span>Length</span>
-      <input className="rng" type="range" min={d.min ?? 1} max={d.max ?? 15} value={seconds} onChange={(e) => onSeconds(Number(e.target.value))} />
-      <span className="val">{seconds}s</span>
-    </div>
+    <>
+      <div className="dock-ctl">
+        <span className="dock-ctl-k">Length</span>
+        <input className="rng" type="range" min={min} max={max} value={seconds} aria-label="Length in seconds" onChange={(e) => onSeconds(Number(e.target.value))} />
+        <NumberField value={seconds} min={min} max={max} suffix="s" ariaLabel="Length in seconds" onCommit={onSeconds} />
+      </div>
+      {countCtl}
+    </>
   );
 }
 
@@ -274,60 +351,86 @@ export function ReferenceDock({
   const pickable = pool.filter((a) => caps[refKind(a)] > 0);
   const headerIcon = acceptsVideo ? "film" : acceptsAudio ? "bolt" : "image";
 
-  // Compact limits hint, e.g. "≤20MB img · ≤50MB/10s vid · ≤20MB/30s aud".
-  const limitHint = refMedia
-    ? supported
-        .map(({ k, label }) =>
-          k === "image"
-            ? `≤${refMedia.maxImageMB}MB ${label}`
-            : k === "video"
-              ? `≤${refMedia.maxVideoMB}MB/${refMedia.maxVideoSec}s ${label}`
-              : `≤${refMedia.maxAudioMB}MB/${refMedia.maxAudioSec}s ${label}`
-        )
-        .join(" · ")
-    : "";
+  // Per-type limits, written plainly and shown as bold badges so the operator can
+  // see at a glance what fits, e.g. "Video — up to 50 MB · 10s".
+  const limits: { k: RefKind; label: string; value: string }[] = refMedia
+    ? supported.map(({ k }) =>
+        k === "image"
+          ? { k, label: "Images", value: `up to ${refMedia.maxImageMB} MB` }
+          : k === "video"
+            ? { k, label: "Video", value: `up to ${refMedia.maxVideoMB} MB · ${refMedia.maxVideoSec}s` }
+            : { k, label: "Audio", value: `up to ${refMedia.maxAudioMB} MB · ${refMedia.maxAudioSec}s` }
+      )
+    : [];
 
   return (
     <div className="ref-dock">
       <div className="ref-dock-bar">
         <span className="t-label" style={{ margin: 0 }}>
-          <Icon name={headerIcon} size={12} /> References {capLabel}
-          {required && (
-            <span style={{ color: missing ? "var(--warn-tx)" : "var(--tx-3)" }}>
-              {" · "}
-              {missing ? "needs a reference" : "locked in"}
-            </span>
-          )}
+          <Icon name={headerIcon} size={12} /> References <span className="ref-count mono">{capLabel}</span>
         </span>
-        <div className="grow" />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={accept}
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => {
-            if (e.target.files) onUpload(e.target.files);
-            e.currentTarget.value = "";
-          }}
-        />
+        {required && (
+          <span className={`ref-req ${missing ? "miss" : "ok"}`}>
+            <span className="led" /> {missing ? "Needs a reference" : "Locked in"}
+          </span>
+        )}
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={accept}
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          if (e.target.files) onUpload(e.target.files);
+          e.currentTarget.value = "";
+        }}
+      />
+
+      {/* Big, obvious entry points — upload from disk or pull from the gallery */}
+      <div className={`ref-actions ${required && missing ? "needs" : ""}`}>
         <button
           type="button"
-          className="chip"
+          className="ref-cta upload"
           disabled={uploading || allFull}
           onClick={() => fileInputRef.current?.click()}
           title={allFull ? "Reference slots full" : "Upload from your computer"}
         >
-          <Icon name="download" size={13} style={{ transform: "rotate(180deg)" }} />
-          {uploading ? "Uploading…" : "Upload"}
+          <span className="ref-cta-ico">
+            <Icon name="download" size={22} style={{ transform: "rotate(180deg)" }} />
+          </span>
+          <span className="ref-cta-tx">
+            <span className="ref-cta-title">{uploading ? "Uploading…" : allFull ? "Slots full" : "Upload"}</span>
+            <span className="ref-cta-sub">Drag &amp; drop, or click to browse</span>
+          </span>
         </button>
-        <button type="button" className={`chip ${open ? "on" : ""}`} onClick={onToggleOpen} title="Pick from the gallery">
-          <Icon name="gallery" size={13} /> Gallery
+        <button
+          type="button"
+          className={`ref-cta gallery ${open ? "on" : ""}`}
+          onClick={onToggleOpen}
+          title="Pick from the gallery"
+        >
+          <span className="ref-cta-ico">
+            <Icon name="gallery" size={22} />
+          </span>
+          <span className="ref-cta-tx">
+            <span className="ref-cta-title">Gallery</span>
+            <span className="ref-cta-sub">{open ? "Choose one below" : "Reuse one of your renders"}</span>
+          </span>
+          <Icon name={open ? "chevronDown" : "chevronRight"} size={16} className="ref-cta-chev" />
         </button>
       </div>
 
-      {limitHint && (
-        <span className="t-xs muted" style={{ marginTop: 4 }}>{limitHint}</span>
+      {limits.length > 0 && (
+        <div className="ref-limits">
+          <span className="ref-limits-k">Accepts</span>
+          {limits.map((l) => (
+            <span key={l.k} className="ref-limit">
+              <b>{l.label}</b> {l.value}
+            </span>
+          ))}
+        </div>
       )}
 
       {selected.length > 0 && (
@@ -385,7 +488,8 @@ export function ReferenceDock({
   );
 }
 
-/* ---------- model popover: quick-switch top models without opening the full panel ---------- */
+/* ---------- model popover: pick a FAMILY (Seedance 2.0, GPT Image 2…) — variants
+   swap inline via VariantSwitch, so this is one decision not five ---------- */
 export function ModelPopover({
   models,
   value,
@@ -401,9 +505,11 @@ export function ModelPopover({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const cur = models.find((m) => m.id === value);
-  // Quick list: the pinned top models for whichever mode we're in.
-  const quick = models.filter((m) => m.featured && (m.unit === "video_second") === isVideo);
+  const families = useMemo(() => buildFamilies(models), [models]);
+  const curKey = familyKey(value);
+  const cur = families.find((f) => f.key === curKey);
+  // Quick list: the pinned families for whichever mode we're in.
+  const quick = families.filter((f) => f.featured && f.isVideo === isVideo);
 
   useEffect(() => {
     if (!open) return;
@@ -419,8 +525,11 @@ export function ModelPopover({
     };
   }, [open]);
 
-  const pick = (id: string) => {
-    onChange(id);
+  const pick = (f: ModelFamily) => {
+    // Keep the current variant when the new family offers it; else land on its base.
+    const want = variantOf(models.find((m) => m.id === value) ?? f.base);
+    const match = f.members.find((m) => variantOf(m) === want) ?? f.base;
+    onChange(match.id);
     setOpen(false);
   };
 
@@ -431,12 +540,12 @@ export function ModelPopover({
         <Icon name="chevronDown" size={12} />
       </button>
       {open && (
-        <div className="brandpick-pop" style={{ minWidth: 248, left: 0, right: "auto" }}>
-          {quick.map((m) => (
-            <button key={m.id} className={`brandpick-row ${value === m.id ? "on" : ""}`} onClick={() => pick(m.id)}>
-              <span className="grow">{m.label}</span>
-              <span className="t-xs mono muted">${m.usd}/{m.unit === "image" ? "img" : "s"}</span>
-              {value === m.id && <Icon name="check" size={13} />}
+        <div className="brandpick-pop" style={{ minWidth: 260, left: 0, right: "auto" }}>
+          {quick.map((f) => (
+            <button key={f.key} className={`brandpick-row ${curKey === f.key ? "on" : ""}`} onClick={() => pick(f)}>
+              <span className="grow">{f.label}</span>
+              {f.members.length > 1 && <span className="t-xs muted">{variantSummary(f)}</span>}
+              {curKey === f.key && <Icon name="check" size={13} />}
             </button>
           ))}
           <button
@@ -451,6 +560,27 @@ export function ModelPopover({
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- variant switch: swap how the chosen model is driven — From text /
+   From an image / From references / Edit — without leaving the composer ---------- */
+export function VariantSwitch({
+  models,
+  value,
+  onChange,
+}: {
+  models: ModelInfo[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const family = useMemo(() => familyOf(models, value), [models, value]);
+  if (!family || family.members.length < 2) return null;
+  const options = family.members.map((m) => ({ value: m.id, label: VARIANT_META[variantOf(m)].short }));
+  return (
+    <span className="variant-switch" title="Swap how this model is driven — text, image or references">
+      <Seg options={options} value={value} onChange={onChange} />
+    </span>
   );
 }
 

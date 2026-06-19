@@ -1,59 +1,72 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { estimate, listModels, defaultSeconds, coerceSeconds, type ModelInfo } from "@/lib/pricing";
+import { useSearchParams } from "next/navigation";
+import { estimate, listModels, defaultSeconds, coerceSeconds } from "@/lib/pricing";
 import { resolveBrandStyle, brandPath, type BrandProfile } from "@/lib/brandTypes";
 import { useStudio } from "../components/AppShell";
 import { Card, Btn, CountUp, FuelGauge, Seg, Switch, useToast } from "../components/ui";
 import { Icon } from "../components/Icon";
 import { ensureNotifyPermission } from "../components/notify";
 import { hueFor, money, usd, cancelJob, type ClientJobAsset } from "../components/studio";
-import { EXAMPLES, MOTION_PRESETS } from "./constants";
-import { type RefAsset, type RefKind, refKind } from "./types";
-import { ResultDock, ShapeControl, ReferenceDock, ModelPopover, BrandPicker, SpendTakeover } from "./components";
+import {
+  MOTION_PRESETS,
+  FRAMING_OPTIONS,
+  LIGHT_OPTIONS,
+  depthStop,
+  cameraPhrase,
+  cameraCount,
+  cameraBadge,
+  sameRecipe,
+  CAMERA_LOOKS,
+  SWEEP_AXES,
+} from "./constants";
+import { type RefAsset, type RefKind, type CameraRecipe, type CameraAxis, refKind } from "./types";
+import { ResultDock, ShapeControl, ReferenceDock, ModelPopover, VariantSwitch, BrandPicker, SpendTakeover } from "./components";
+import { TrimModal } from "./TrimModal";
+import { buildFamilies, familyKey, variantOf, variantSummary, type ModelFamily } from "./models";
 
 // All models (incl. finishing) so role presets like Upscaler resolve; the
 // composer router renders every non-finishing fal model (finishing runs from /deliver).
 const MODELS = listModels();
 const modelLabelFor = (id: string | undefined) => MODELS.find((m) => m.id === id)?.label ?? id ?? "";
 
-// Full-catalog grouping for the model router.
-const CATEGORY_LABEL: Record<string, string> = {
-  image: "Image",
-  "image-edit": "Image · Edit",
-  video: "Video",
-  "video-ref": "Video · References",
-  finish: "Finishing",
-};
-const CATEGORY_ORDER = ["image", "image-edit", "video", "video-ref"];
-
-function modelTags(m: ModelInfo): string[] {
+// Capability tags aggregated across a family's variants (no price — cost lives only
+// on the Generate field). Variant range is shown separately as "Text · Image · Refs".
+function familyTags(f: ModelFamily): string[] {
   const t: string[] = [];
-  const refs = m.refImages + m.refVideos + m.refAudio;
-  if (refs > 0) t.push(`${refs} ref`);
-  if (m.hasAudio) t.push("audio");
-  if (m.hasFast) t.push("fast");
-  if (m.has4k) t.push("4K");
+  if (f.members.some((m) => m.hasAudio)) t.push("audio");
+  if (f.members.some((m) => m.hasFast)) t.push("fast");
+  if (f.members.some((m) => m.has4k)) t.push("4K");
   return t;
 }
 
-function ModelChip({ m, on, onClick }: { m: ModelInfo; on: boolean; onClick: () => void }) {
-  const tags = modelTags(m);
+function FamilyCard({ family, currentId, onPick }: { family: ModelFamily; currentId: string; onPick: (id: string) => void }) {
+  const on = familyKey(currentId) === family.key;
+  const tags = familyTags(family);
+  const pick = () => {
+    // Keep the active variant if this family offers it, else land on its base.
+    const want = variantOf(MODELS.find((m) => m.id === currentId) ?? family.base);
+    const match = family.members.find((m) => variantOf(m) === want) ?? family.base;
+    onPick(match.id);
+  };
   return (
     <button
       className={`chip model-chip ${on ? "on" : ""}`}
-      style={{ height: "auto", padding: "7px 11px", flexDirection: "column", alignItems: "flex-start", gap: 3 }}
-      onClick={onClick}
-      title={m.notes || m.id}
+      style={{ height: "auto", padding: "8px 12px", flexDirection: "column", alignItems: "flex-start", gap: 4 }}
+      onClick={pick}
+      title={family.base.notes || family.key}
     >
-      <span style={{ fontWeight: 700 }}>{m.label}</span>
-      <span className="row gap2" style={{ alignItems: "center" }}>
-        <span className="mono t-xs">${m.usd}/{m.unit === "image" ? "img" : "s"}</span>
-        {tags.map((t) => (
-          <span key={t} className="model-tag">{t}</span>
-        ))}
-      </span>
+      <span style={{ fontWeight: 700 }}>{family.label}</span>
+      {(family.members.length > 1 || tags.length > 0) && (
+        <span className="row gap2" style={{ alignItems: "center" }}>
+          {family.members.length > 1 && <span className="model-variants">{variantSummary(family)}</span>}
+          {tags.map((t) => (
+            <span key={t} className="model-tag">{t}</span>
+          ))}
+        </span>
+      )}
     </button>
   );
 }
@@ -61,45 +74,9 @@ function ModelChip({ m, on, onClick }: { m: ModelInfo; on: boolean; onClick: () 
 // Per-mode default model + ratio so the Image/Video tabs route instantly.
 const MODE_DEFAULTS: Record<"image" | "video", { model: string; ratio: string }> = {
   image: { model: "openai/gpt-image-2", ratio: "1:1" },
-  video: { model: "fal-ai/veo3.1/fast", ratio: "9:16" },
+  video: { model: "bytedance/seedance-2.0/text-to-video", ratio: "9:16" },
 };
 
-
-// Cinema camera direction — shot size / lens / lighting as prompt modifiers,
-// appended like house style. Works for stills and video (the Open-Gen-AI /
-// Higgsfield "Cinema Studio" pattern); $0, pure prompt composition.
-const CAMERA_PRESETS: { group: string; label: string; options: { id: string; label: string; phrase: string }[] }[] = [
-  {
-    group: "shot",
-    label: "Shot",
-    options: [
-      { id: "wide", label: "Wide", phrase: "wide establishing shot" },
-      { id: "medium", label: "Medium", phrase: "medium shot" },
-      { id: "close", label: "Close-up", phrase: "tight close-up" },
-      { id: "macro", label: "Macro", phrase: "extreme macro detail" },
-    ],
-  },
-  {
-    group: "lens",
-    label: "Lens",
-    options: [
-      { id: "wide-angle", label: "24mm", phrase: "24mm wide-angle lens, deep focus" },
-      { id: "fifty", label: "50mm", phrase: "50mm lens, natural perspective" },
-      { id: "portrait", label: "85mm", phrase: "85mm portrait lens, shallow depth of field, creamy bokeh" },
-      { id: "anamorphic", label: "Anamorphic", phrase: "anamorphic lens, cinematic widescreen, subtle lens flares" },
-    ],
-  },
-  {
-    group: "light",
-    label: "Light",
-    options: [
-      { id: "golden", label: "Golden hour", phrase: "warm golden-hour light" },
-      { id: "soft", label: "Soft studio", phrase: "soft diffused studio lighting" },
-      { id: "noir", label: "Hard noir", phrase: "hard chiaroscuro noir lighting, deep shadows" },
-      { id: "neon", label: "Neon", phrase: "moody neon practical lighting" },
-    ],
-  },
-];
 
 // "Animate next shot": the top image→video model, resolved from the live catalog.
 const I2V_MODEL =
@@ -158,6 +135,21 @@ function RoleArt({ roleId, live }: { roleId: string; live?: string }) {
   );
 }
 
+// A camera Look's face: a curated still at /looks/<id>.{webp,jpg} → (null, the
+// hue-keyed mesh shows through). Same fallback discipline as RoleArt, so a Look
+// tile is a coloured mesh until its still is generated — never a broken image.
+function LookArt({ id }: { id: string }) {
+  const chain = useMemo(() => [`/looks/${id}.webp`, `/looks/${id}.jpg`], [id]);
+  const [idx, setIdx] = useState(0);
+  useEffect(() => setIdx(0), [id]);
+  const src = chain[idx];
+  if (!src) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img className="look-photo" src={src} alt="" loading="lazy" onError={() => setIdx((i) => i + 1)} />
+  );
+}
+
 // Probe a local video/audio file's duration (seconds) before upload, so we can
 // reject clips that exceed a model's reference-length limit client-side.
 function probeDuration(file: File): Promise<number> {
@@ -183,9 +175,20 @@ interface Employee {
   studio: { kind: "image" | "video"; model: string; ratio: string; seconds?: number; style: string } | null;
 }
 
+// useSearchParams needs a Suspense boundary; the composer reads the deep-link
+// seed (?prompt / ?role / …) from it so a Home→Create hand-off survives.
 export default function CreatePage() {
+  return (
+    <Suspense fallback={null}>
+      <CreateComposer />
+    </Suspense>
+  );
+}
+
+function CreateComposer() {
   const { budget, refresh, jobs } = useStudio();
   const toast = useToast();
+  const searchParams = useSearchParams();
 
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("openai/gpt-image-2");
@@ -213,29 +216,57 @@ export default function CreatePage() {
   const [mod, setMod] = useState("Ctrl");
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  // An over-limit video the operator can trim down to a fitting reference.
+  const [trimFile, setTrimFile] = useState<File | null>(null);
   const [modelQuery, setModelQuery] = useState("");
   const [enhancing, setEnhancing] = useState(false);
   const [motion, setMotion] = useState("");
-  const [camera, setCamera] = useState<Record<string, string>>({});
+  const [camera, setCamera] = useState<CameraRecipe>({});
   const [cameraOpen, setCameraOpen] = useState(false);
+  // One-variable re-roll: sweep a single camera axis, hold everything else.
+  const [sweepAxis, setSweepAxis] = useState<CameraAxis | null>(null);
+  const [sweepBusy, setSweepBusy] = useState(false);
+  const [sweepSpendOpen, setSweepSpendOpen] = useState(false);
   const [lastJobId, setLastJobId] = useState<number | null>(null);
   const [roleArt, setRoleArt] = useState<Record<string, string>>({});
   // Sequence (opt-in): a film built shot by shot. Shots share role/brand/model/refs.
   const [seqOpen, setSeqOpen] = useState(false);
-  const [shots, setShots] = useState<{ id: number; prompt: string; motion: string }[]>([]);
+  const [shots, setShots] = useState<{ id: number; prompt: string; motion: string; camera: CameraRecipe }[]>([]);
   const [seqName, setSeqName] = useState("sequence");
   const [seqBusy, setSeqBusy] = useState(false);
   const [seqSpendOpen, setSeqSpendOpen] = useState(false);
+  // Brand-DNA lens lock: every shot inherits the composer's current depth + light
+  // (lens character), framing stays per-shot — so a sequence holds one look.
+  const [seqLockLens, setSeqLockLens] = useState(false);
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const hydratedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const roleParamRef = useRef(false);
+  // Deep-link params captured ONCE at first render, before any effect clears the
+  // URL. The role effect (gated on employees), the deep-link effect, and the
+  // StrictMode re-run of the hydrate effect all read this stable snapshot — so a
+  // handed-off ?role / ?prompt can't be lost to the URL clear or stomped by the
+  // localStorage hydration re-running. This is what makes the Home→Create
+  // hand-off deterministic.
+  const seedRef = useRef<{ prompt: string | null; mode: string | null; role: string | null; refId: number; iterId: number } | null>(null);
+  if (seedRef.current === null) {
+    seedRef.current = {
+      prompt: searchParams.get("prompt"),
+      mode: searchParams.get("mode"),
+      role: searchParams.get("role"),
+      refId: Number(searchParams.get("ref")) || 0,
+      iterId: Number(searchParams.get("iterate")) || 0,
+    };
+  }
   const shotIdRef = useRef(1);
 
   const modelInfo = MODELS.find((m) => m.id === model);
   const isVideo = modelInfo?.unit === "video_second";
   const mode: "image" | "video" = isVideo ? "video" : "image";
+  // Seed support lets a one-variable re-roll hold an identical base; without it,
+  // the sweep still runs but the base image drifts too (explore mode).
+  const hasSeed = !!modelInfo?.hasSeed;
   const ratios = modelInfo?.ratios ?? ["1:1"];
   // Each reference type has its own native cap (e.g. Seedance refs: 9 img · 3 vid · 3 aud).
   const refCaps: Record<RefKind, number> = {
@@ -269,22 +300,31 @@ export default function CreatePage() {
   // Full fal catalog (composer-runnable models only — finishing runs from /deliver).
   const catalog = MODELS.filter((m) => m.tier !== "finish");
   const modelQ = modelQuery.trim().toLowerCase();
-  const catalogMatches = modelQ
-    ? catalog.filter(
-        (m) =>
-          m.label.toLowerCase().includes(modelQ) ||
-          m.id.toLowerCase().includes(modelQ) ||
-          m.category.includes(modelQ) ||
-          m.kind.includes(modelQ)
+  // The router lists model FAMILIES, not every variant — one card per model, swap
+  // the variant inline. Search matches a family's name or any of its members.
+  const families = buildFamilies(catalog);
+  const familyMatches = modelQ
+    ? families.filter(
+        (f) =>
+          f.label.toLowerCase().includes(modelQ) ||
+          f.members.some(
+            (m) =>
+              m.label.toLowerCase().includes(modelQ) ||
+              m.id.toLowerCase().includes(modelQ) ||
+              m.category.includes(modelQ) ||
+              m.kind.includes(modelQ)
+          )
       )
-    : catalog;
+    : families;
 
   const est = useMemo(() => {
     try {
       return estimate({
         provider: "fal",
+        // Video bills per second; N clips = N × seconds of footage. Images batch
+        // into one call, so count is just the image count.
+        count: isVideo ? seconds * numImages : numImages,
         model,
-        count: isVideo ? seconds : numImages,
         tier: tier4k ? "4k" : undefined,
         quality: modelInfo?.qualities.length ? quality : undefined,
         audio,
@@ -302,14 +342,18 @@ export default function CreatePage() {
   const brandParent = brand?.parent ? brandList.find((b) => b.id === brand.parent) : null;
   const motionNote = isVideo ? (brand?.motion ?? brandParent?.motion ?? "") : "";
   const motionPhrase = isVideo ? MOTION_PRESETS.find((mp) => mp.id === motion)?.phrase ?? "" : "";
-  // Selected camera modifiers (shot / lens / light), in a stable order.
-  const cameraPhrase = CAMERA_PRESETS.map((g) => g.options.find((o) => o.id === camera[g.group])?.phrase)
+  // Camera direction (framing / depth / light) compiled to prompt language.
+  const camPhrase = cameraPhrase(camera);
+  const camCount = cameraCount(camera);
+  const styleSuffix = [employee?.studio?.style, brandStyle, motionNote, motionPhrase, camPhrase]
     .filter(Boolean)
     .join(", ");
-  const cameraCount = CAMERA_PRESETS.filter((g) => camera[g.group]).length;
-  const styleSuffix = [employee?.studio?.style, brandStyle, motionNote, motionPhrase, cameraPhrase]
-    .filter(Boolean)
-    .join(", ");
+  // Conflict guard: if the typed prompt already speaks to an axis, flag it so we
+  // don't quietly double-stack contradictory direction (reuses the enhance cues).
+  const promptLc = prompt.toLowerCase();
+  const promptHasFraming = /close.?up|wide|medium shot|macro|establishing|portrait|landscape|aerial|overhead/.test(promptLc);
+  const promptHasDepth = /bokeh|depth of field|shallow|deep focus|\d{2,3}\s?mm|f\/\d|aperture|\blens\b/.test(promptLc);
+  const promptHasLight = /golden|neon|noir|backlit|rim light|chiaroscuro|lighting|\blit\b|sunset|dusk|dawn/.test(promptLc);
   // The skill description front-loads a human summary before the "Use for:" routing text.
   const roleSummary = employee?.description ? employee.description.split(/\s*Use for:/i)[0].trim() : "";
 
@@ -328,7 +372,7 @@ export default function CreatePage() {
   // roster has loaded so the preset (model / ratio / seconds) resolves.
   useEffect(() => {
     if (roleParamRef.current || employees.length === 0) return;
-    const roleId = new URLSearchParams(window.location.search).get("role");
+    const roleId = seedRef.current?.role ?? null;
     if (!roleId) {
       roleParamRef.current = true;
       return;
@@ -374,17 +418,25 @@ export default function CreatePage() {
   // Resume the last session and open ready to type. Persisted client-side only.
   useEffect(() => {
     if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) setMod("⌘");
+    // A deep-link seed (?prompt / ?mode / ?role / ?iterate / ?ref) always wins over
+    // the resumed session, so the localStorage restore skips any field the seed owns.
+    const seed = seedRef.current;
+    const promptSeed = !!seed && (seed.prompt != null || seed.iterId > 0);
+    const modelSeed = !!seed && (!!seed.mode || !!seed.role || seed.iterId > 0 || seed.refId > 0);
+    const roleSeed = !!seed && (!!seed.role || !!seed.mode);
+    const ratioSeed = !!seed && (!!seed.mode || !!seed.role);
+    const secondsSeed = !!seed && !!seed.role;
     try {
       const raw = localStorage.getItem("sc.create");
       if (raw) {
         const s = JSON.parse(raw);
-        if (typeof s.prompt === "string") setPrompt(s.prompt);
-        if (typeof s.model === "string" && MODELS.some((m) => m.id === s.model)) setModel(s.model);
-        if (typeof s.employeeId === "string") setEmployeeId(s.employeeId);
+        if (typeof s.prompt === "string" && !promptSeed) setPrompt(s.prompt);
+        if (typeof s.model === "string" && MODELS.some((m) => m.id === s.model) && !modelSeed) setModel(s.model);
+        if (typeof s.employeeId === "string" && !roleSeed) setEmployeeId(s.employeeId);
         if (typeof s.brandId === "string") setBrandId(s.brandId);
-        if (typeof s.ratio === "string") setRatio(s.ratio);
+        if (typeof s.ratio === "string" && !ratioSeed) setRatio(s.ratio);
         if (Number.isFinite(s.numImages)) setNumImages(s.numImages);
-        if (Number.isFinite(s.seconds)) setSeconds(s.seconds);
+        if (Number.isFinite(s.seconds) && !secondsSeed) setSeconds(s.seconds);
       }
     } catch {
       /* ignore corrupt state */
@@ -417,11 +469,13 @@ export default function CreatePage() {
   // ?iterate=<id> re-opens its prompt + model to riff on. From the Showcase
   // dock: ?prompt=<text>&mode=<image|video> seeds a fresh draft.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const refId = Number(params.get("ref")) || 0;
-    const iterId = Number(params.get("iterate")) || 0;
-    const seedPrompt = params.get("prompt");
-    const seedMode = params.get("mode");
+    // Read the snapshot captured at first render — robust to the URL being
+    // cleared below and to StrictMode re-running this effect.
+    const seed = seedRef.current;
+    const refId = seed?.refId ?? 0;
+    const iterId = seed?.iterId ?? 0;
+    const seedPrompt = seed?.prompt ?? null;
+    const seedMode = seed?.mode ?? null;
     if (seedPrompt != null || seedMode) {
       if (seedPrompt != null) setPrompt(seedPrompt);
       if (seedMode === "image" || seedMode === "video") {
@@ -533,6 +587,33 @@ export default function CreatePage() {
   // validated against THIS model's native reference limits (type · size · length)
   // before we spend the upload; survivors mirror to Blob, register as $0 assets,
   // and auto-select while honouring each type's remaining room.
+  // Merge freshly-created reference assets into the pool and auto-select them while
+  // honouring each type's remaining room. Shared by upload and trim.
+  const addRefAssets = useCallback(
+    (added: RefAsset[]) => {
+      if (added.length === 0) return;
+      setRefPool((prev) => [...added, ...prev.filter((p) => !added.some((n) => n.id === p.id))]);
+      setRefIds((prev) => {
+        const room: Record<RefKind, number> = { ...refCaps };
+        for (const id of prev) {
+          const a = [...added, ...refPool].find((x) => x.id === id);
+          if (a) room[refKind(a)]--;
+        }
+        const next = [...prev];
+        for (const a of added) {
+          const k = refKind(a);
+          if (room[k] > 0) {
+            next.push(a.id);
+            room[k]--;
+          }
+        }
+        return next;
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refCaps.image, refCaps.video, refCaps.audio, refPool]
+  );
+
   const onUploadFiles = useCallback(
     async (files: FileList | File[]) => {
       const list = Array.from(files);
@@ -543,6 +624,7 @@ export default function CreatePage() {
         .join(" / ");
 
       const valid: File[] = [];
+      let trimVideo: File | null = null; // first over-limit video → offer the trimmer
       for (const f of list) {
         const t = f.type || "";
         const k: RefKind | null = t.startsWith("video")
@@ -557,57 +639,52 @@ export default function CreatePage() {
           continue;
         }
         const mb = k === "video" ? limits.maxVideoMB : k === "audio" ? limits.maxAudioMB : limits.maxImageMB;
-        if (f.size > mb * 1024 * 1024) {
+        const overSize = f.size > mb * 1024 * 1024;
+        if (k === "video") {
+          const sec = await probeDuration(f).catch(() => 0);
+          const overLen = sec > limits.maxVideoSec + 0.5;
+          if (overSize || overLen) {
+            // Don't reject — let them keep a fitting section instead.
+            if (!trimVideo) trimVideo = f;
+            else toast({ kind: "info", title: "One clip at a time", sub: `${f.name} also needs trimming — do this one first` });
+            continue;
+          }
+        } else if (overSize) {
           toast({ kind: "bad", title: "Too large", sub: `${f.name} exceeds ${mb}MB for ${k} references` });
           continue;
-        }
-        if (k === "video" || k === "audio") {
-          const maxSec = k === "video" ? limits.maxVideoSec : limits.maxAudioSec;
+        } else if (k === "audio") {
           const sec = await probeDuration(f).catch(() => 0);
-          if (sec > maxSec + 0.5) {
-            toast({ kind: "bad", title: "Too long", sub: `${f.name} is ${Math.round(sec)}s — ${k} references cap at ${maxSec}s` });
+          if (sec > limits.maxAudioSec + 0.5) {
+            toast({ kind: "bad", title: "Too long", sub: `${f.name} is ${Math.round(sec)}s — audio references cap at ${limits.maxAudioSec}s` });
             continue;
           }
         }
         valid.push(f);
       }
-      if (valid.length === 0) return;
 
-      setUploading(true);
-      try {
-        const fd = new FormData();
-        valid.forEach((f) => fd.append("files", f));
-        fd.append("model", model);
-        const res = await fetch("/api/uploads", { method: "POST", body: fd });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Upload failed");
-        const added = (data.assets ?? []) as RefAsset[];
-        setRefPool((prev) => [...added, ...prev.filter((p) => !added.some((n) => n.id === p.id))]);
-        setRefIds((prev) => {
-          const room: Record<RefKind, number> = { ...refCaps };
-          for (const id of prev) {
-            const a = [...added, ...refPool].find((x) => x.id === id);
-            if (a) room[refKind(a)]--;
-          }
-          const next = [...prev];
-          for (const a of added) {
-            const k = refKind(a);
-            if (room[k] > 0) {
-              next.push(a.id);
-              room[k]--;
-            }
-          }
-          return next;
-        });
-        toast({ kind: "ok", title: "Reference added", sub: `${added.length} file${added.length > 1 ? "s" : ""} ready` });
-      } catch (err) {
-        toast({ kind: "bad", title: "Upload failed", sub: err instanceof Error ? err.message : "Try again" });
-      } finally {
-        setUploading(false);
+      if (valid.length > 0) {
+        setUploading(true);
+        try {
+          const fd = new FormData();
+          valid.forEach((f) => fd.append("files", f));
+          fd.append("model", model);
+          const res = await fetch("/api/uploads", { method: "POST", body: fd });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? "Upload failed");
+          const added = (data.assets ?? []) as RefAsset[];
+          addRefAssets(added);
+          toast({ kind: "ok", title: "Reference added", sub: `${added.length} file${added.length > 1 ? "s" : ""} ready` });
+        } catch (err) {
+          toast({ kind: "bad", title: "Upload failed", sub: err instanceof Error ? err.message : "Try again" });
+        } finally {
+          setUploading(false);
+        }
       }
+
+      if (trimVideo) setTrimFile(trimVideo);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [supportsRefs, model, modelInfo, refCaps.image, refCaps.video, refCaps.audio, refPool, toast]
+    [supportsRefs, model, modelInfo, refCaps.image, refCaps.video, refCaps.audio, addRefAssets, toast]
   );
 
   const overThreshold = !!(est && budget && est.usd > budget.settings.confirmThresholdUsd);
@@ -619,58 +696,165 @@ export default function CreatePage() {
       if (!est || !budget) return;
       setBusy(true);
       setError(null);
+      const fullPrompt = styleSuffix ? `${prompt.trim()}, ${styleSuffix}` : prompt.trim();
+      // Video renders one clip per call, so N clips = N calls; images batch N
+      // into a single call (one job, an N-up set on the wall).
+      const reps = isVideo ? numImages : 1;
+      const baseLabel = label || (employee ? employee.id : "asset");
+      let fired = 0;
+      let lastId: number | null = null;
       try {
-        const fullPrompt = styleSuffix ? `${prompt.trim()}, ${styleSuffix}` : prompt.trim();
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: fullPrompt,
-            model,
-            numImages,
-            seconds,
-            ratio,
-            audio: modelInfo?.hasAudio ? audio : false,
-            fast,
-            tier: tier4k ? "4k" : undefined,
-            quality: modelInfo?.qualities.length ? quality : undefined,
-            negativePrompt: modelInfo?.hasNegative ? negative || undefined : undefined,
-            refImageUrls,
-            refVideoUrls,
-            refAudioUrls,
-            project,
-            label: label || (employee ? employee.id : "asset"),
-            role: employeeId || undefined,
-            confirmed,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (data.error === "confirm_required") {
-            setSpendOpen(true);
-            return;
+        for (let i = 0; i < reps; i++) {
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: fullPrompt,
+              model,
+              numImages: isVideo ? 1 : numImages,
+              seconds,
+              ratio,
+              audio: modelInfo?.hasAudio ? audio : false,
+              fast,
+              tier: tier4k ? "4k" : undefined,
+              quality: modelInfo?.qualities.length ? quality : undefined,
+              negativePrompt: modelInfo?.hasNegative ? negative || undefined : undefined,
+              refImageUrls,
+              refVideoUrls,
+              refAudioUrls,
+              project,
+              label: reps > 1 ? `${baseLabel}-${i + 1}` : baseLabel,
+              role: employeeId || undefined,
+              confirmed,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            if (data.error === "confirm_required") {
+              setSpendOpen(true);
+              return;
+            }
+            if (data.error === "weekly_cap_exceeded")
+              throw new Error(
+                fired > 0
+                  ? `Weekly cap reached after ${fired} clip${fired === 1 ? "" : "s"} — raise it in Settings or finish the rest next week.`
+                  : `Weekly cap reached ($${data.budget?.settings.weeklyCapUsd}). Finance can raise it in Settings.`
+              );
+            if (data.error === "monthly_pool_exceeded") throw new Error(`Monthly team pool exhausted ($${data.budget?.settings.monthlyPoolUsd}).`);
+            throw new Error(data.error ?? `HTTP ${res.status}`);
           }
-          if (data.error === "weekly_cap_exceeded") throw new Error(`Weekly cap reached ($${data.budget?.settings.weeklyCapUsd}). Finance can raise it in Settings.`);
-          if (data.error === "monthly_pool_exceeded") throw new Error(`Monthly team pool exhausted ($${data.budget?.settings.monthlyPoolUsd}).`);
-          throw new Error(data.error ?? `HTTP ${res.status}`);
+          if (typeof data.jobId === "number") lastId = data.jobId;
+          fired++;
         }
         setSpendOpen(false);
-        if (typeof data.jobId === "number") setLastJobId(data.jobId);
+        if (lastId != null) setLastJobId(lastId);
         // Keep the prompt — one-variable iteration IS the loop; tweak and fire again.
         ensureNotifyPermission();
-        toast({ kind: "ok", title: "On the line", sub: `${money(est.usd)} · watch it land below` });
+        toast({
+          kind: "ok",
+          title: reps > 1 ? `${fired} on the line` : "On the line",
+          sub: `${money(est.usd)} · watch ${reps > 1 ? "them" : "it"} land below`,
+        });
         refresh();
       } catch (err) {
+        if (fired > 0) refresh();
         setError(err instanceof Error ? err.message : "Generation failed");
       } finally {
         setBusy(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [est, budget, styleSuffix, prompt, model, numImages, seconds, ratio, audio, fast, tier4k, quality, negative, refImageUrls, refVideoUrls, refAudioUrls, project, label, employee, modelInfo]
+    [est, budget, styleSuffix, prompt, model, numImages, seconds, ratio, audio, fast, tier4k, quality, negative, refImageUrls, refVideoUrls, refAudioUrls, project, label, employee, employeeId, modelInfo, isVideo]
+  );
+
+  // ---- One-variable re-roll: fire one render per value of a single camera axis,
+  // holding the prompt + every other setting. When the model has a seed we lock
+  // an identical base across the sweep so ONLY the chosen axis changes; otherwise
+  // each render also gets the model's natural variation (explore mode). ----
+  const sweepValues = useMemo(
+    () => (sweepAxis ? SWEEP_AXES.find((s) => s.axis === sweepAxis)?.values ?? [] : []),
+    [sweepAxis]
+  );
+  // Sweep is image-only; video iterates via the Fast lane, not a base lock.
+  const sweeping = !!sweepAxis && !isVideo;
+  // One image per axis value, so cost is per-image (est.unitUsd), not the ×N batch.
+  const sweepTotalUsd = (est?.unitUsd ?? 0) * sweepValues.length;
+  const sweepOverThreshold = !!(budget && sweepTotalUsd > budget.settings.confirmThresholdUsd);
+  const sweepOverCap = !!(budget && sweepTotalUsd > budget.remainingWeekUsd);
+
+  const runSweep = useCallback(
+    async (confirmed: boolean) => {
+      if (!est || !budget || !sweepAxis || sweepValues.length === 0 || sweepBusy) return;
+      if (!confirmed && sweepTotalUsd > budget.settings.confirmThresholdUsd) {
+        setSweepSpendOpen(true);
+        return;
+      }
+      setSweepBusy(true);
+      setError(null);
+      // Lock one base seed for the whole sweep (only honoured by hasSeed models).
+      const baseSeed = Math.floor(Math.random() * 2147483647);
+      const axisLabel = SWEEP_AXES.find((s) => s.axis === sweepAxis)?.label ?? sweepAxis;
+      let fired = 0;
+      let lastId: number | null = null;
+      try {
+        for (const value of sweepValues) {
+          const recipe: CameraRecipe = { ...camera, [sweepAxis]: value };
+          const camPh = cameraPhrase(recipe);
+          const suffix = [employee?.studio?.style, brandStyle, camPh].filter(Boolean).join(", ");
+          const fullPrompt = suffix ? `${prompt.trim()}, ${suffix}` : prompt.trim();
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: fullPrompt,
+              model,
+              numImages: 1,
+              ratio,
+              tier: tier4k ? "4k" : undefined,
+              quality: modelInfo?.qualities.length ? quality : undefined,
+              negativePrompt: modelInfo?.hasNegative ? negative || undefined : undefined,
+              refImageUrls,
+              project,
+              label: `${sweepAxis}-${value}`,
+              role: employeeId || undefined,
+              seed: hasSeed ? baseSeed : undefined,
+              confirmed: true,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            if (data.error === "weekly_cap_exceeded")
+              throw new Error(`Weekly cap reached after ${fired} variant${fired === 1 ? "" : "s"} — raise it in Settings.`);
+            if (data.error === "monthly_pool_exceeded")
+              throw new Error(`Monthly team pool exhausted after ${fired} variant${fired === 1 ? "" : "s"}.`);
+            throw new Error(data.error ?? `HTTP ${res.status}`);
+          }
+          if (typeof data.jobId === "number") lastId = data.jobId;
+          fired++;
+        }
+        setSweepSpendOpen(false);
+        if (lastId != null) setLastJobId(lastId);
+        ensureNotifyPermission();
+        toast({
+          kind: "ok",
+          title: `${fired} ${axisLabel.toLowerCase()} variants on the line`,
+          sub: `${money(sweepTotalUsd)} · ${hasSeed ? "locked base" : "explore"} · they land below`,
+        });
+        refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Sweep failed");
+      } finally {
+        setSweepBusy(false);
+      }
+    },
+    [est, budget, sweepAxis, sweepValues, sweepBusy, sweepTotalUsd, camera, employee, brandStyle, prompt, model, ratio, tier4k, quality, negative, refImageUrls, project, employeeId, hasSeed, modelInfo, toast, refresh]
   );
 
   function onGenerate() {
+    if (sweepAxis && !isVideo) {
+      runSweep(false);
+      return;
+    }
     if (overThreshold) setSpendOpen(true);
     else submit(false);
   }
@@ -687,9 +871,16 @@ export default function CreatePage() {
       });
       const data = await res.json();
       if (!res.ok || typeof data.enhanced !== "string") throw new Error(data.error ?? "Enhance failed");
+      // Heuristic = the local fallback (no ANTHROPIC_API_KEY); be honest about it
+      // and point at the real AI rewrite rather than pretending it's a model pass.
+      const heuristic = data.engine === "heuristic";
       if (data.changed) {
         setPrompt(data.enhanced);
-        toast({ kind: "ok", title: "Prompt enhanced", sub: (data.added ?? []).join(" · ") });
+        toast({
+          kind: "ok",
+          title: heuristic ? "Prompt expanded" : "Prompt rewritten by Claude",
+          sub: heuristic ? "Local pass · set ANTHROPIC_API_KEY for an AI rewrite" : (data.added ?? []).join(" · ") || "Tightened for this model",
+        });
       } else {
         toast({ kind: "info", title: "Already sharp", sub: "Nothing to add — send it." });
       }
@@ -749,10 +940,12 @@ export default function CreatePage() {
   const addShot = useCallback(() => {
     const p = prompt.trim();
     if (!p) return;
-    setShots((prev) => [...prev, { id: shotIdRef.current++, prompt: p, motion }]);
+    // Keep motion AND camera after adding — lens continuity across shots is the
+    // default; the operator changes one thing for the next shot (one-variable).
+    setShots((prev) => [...prev, { id: shotIdRef.current++, prompt: p, motion, camera }]);
     setPrompt("");
     promptRef.current?.focus();
-  }, [prompt, motion]);
+  }, [prompt, motion, camera]);
 
   const editShot = useCallback(
     (id: number) => {
@@ -760,6 +953,7 @@ export default function CreatePage() {
       if (!s) return;
       setPrompt(s.prompt);
       setMotion(s.motion);
+      setCamera(s.camera ?? {});
       setShots((prev) => prev.filter((x) => x.id !== id));
       promptRef.current?.focus();
     },
@@ -793,7 +987,11 @@ export default function CreatePage() {
         for (let i = 0; i < shots.length; i++) {
           const shot = shots[i];
           const motionPh = isVideo ? MOTION_PRESETS.find((m) => m.id === shot.motion)?.phrase ?? "" : "";
-          const suffix = [employee?.studio?.style, brandStyle, motionNote, motionPh].filter(Boolean).join(", ");
+          // Lens lock: every shot inherits the composer's current depth + light
+          // (lens character), keeping its own framing — so the sequence holds one look.
+          const shotCam = seqLockLens ? { ...shot.camera, depth: camera.depth, light: camera.light } : shot.camera;
+          const camPh = cameraPhrase(shotCam);
+          const suffix = [employee?.studio?.style, brandStyle, motionNote, motionPh, camPh].filter(Boolean).join(", ");
           const fullPrompt = suffix ? `${shot.prompt}, ${suffix}` : shot.prompt;
           const res = await fetch("/api/generate", {
             method: "POST",
@@ -844,7 +1042,7 @@ export default function CreatePage() {
         setSeqBusy(false);
       }
     },
-    [est, budget, shots, seqBusy, seqName, isVideo, employee, brandStyle, motionNote, model, numImages, seconds, ratio, audio, fast, tier4k, quality, negative, refImageUrls, refVideoUrls, refAudioUrls, modelInfo, toast, refresh, seqTotalUsd]
+    [est, budget, shots, seqBusy, seqName, isVideo, employee, brandStyle, motionNote, seqLockLens, camera, model, numImages, seconds, ratio, audio, fast, tier4k, quality, negative, refImageUrls, refVideoUrls, refAudioUrls, modelInfo, toast, refresh, seqTotalUsd]
   );
 
   const warning = overCap ? (
@@ -884,14 +1082,14 @@ export default function CreatePage() {
             <button
               className={`role-tile freeform ${!employeeId ? "on" : ""}`}
               onClick={() => setEmployeeId("")}
-              aria-label="Freeform — no role"
+              aria-label="Standard — the base model, no role"
             >
               <div className="role-ico"><Icon name="wand" size={20} /></div>
-              <span className="ff-label">Freeform</span>
+              <span className="ff-label">Standard</span>
               {!employeeId && <span className="role-check"><Icon name="check" size={13} /></span>}
               <div className="role-pop" role="tooltip">
-                <div className="role-pop-hd">Freeform</div>
-                <div className="role-pop-style muted">No house style — your prompt is sent exactly as written.</div>
+                <div className="role-pop-hd">Standard</div>
+                <div className="role-pop-style muted">The house standard model, prompt sent as written. Add a brand or role to shift the look.</div>
               </div>
             </button>
             {roleTiles.map((e) => {
@@ -991,69 +1189,174 @@ export default function CreatePage() {
             </button>
             <button
               type="button"
-              className={`chip ${cameraOpen || cameraCount > 0 ? "on" : ""}`}
+              className={`chip ${cameraOpen || camCount > 0 || (isVideo && motion) ? "on" : ""}`}
               onClick={() => setCameraOpen((v) => !v)}
-              title="Add cinema camera, lens and lighting direction"
+              title={isVideo ? "Direct the shot — looks, framing, depth, light and motion" : "Direct the frame — looks, framing, depth and light"}
             >
-              <Icon name="film" size={13} /> Camera{cameraCount > 0 ? ` · ${cameraCount}` : ""}
+              <Icon name="film" size={13} /> {isVideo ? "Camera & motion" : "Camera"}
+              {camCount + (isVideo && motion ? 1 : 0) > 0 ? ` · ${camCount + (isVideo && motion ? 1 : 0)}` : ""}
             </button>
-            {isVideo && (
-              <>
-                <span className="t-xs muted" style={{ marginLeft: 4 }}>Motion</span>
-                {MOTION_PRESETS.map((mp) => (
+          </div>
+          {/* CAMERA RACK — a director's intent surface (Looks + framing + a depth
+              dial + light), not a gear spec-sheet. Compiles to prompt language. */}
+          {cameraOpen && (
+            <div className="col gap3" style={{ marginTop: 10 }}>
+              {/* LOOKS — one-tap coherent recipes, shown as image tiles (the
+                  studio's curated still per look → hue-keyed mesh fallback). */}
+              <div className="row gap2" style={{ alignItems: "flex-start" }}>
+                <div style={{ width: 52, flex: "none", paddingTop: 2 }}>
+                  <span className="t-xs muted">Looks</span>
+                  {camCount > 0 && (
+                    <button
+                      type="button"
+                      className="t-xs"
+                      title="Clear all camera direction"
+                      style={{ display: "block", marginTop: 6, background: "none", border: "none", padding: 0, color: "var(--accent-hi)", cursor: "pointer" }}
+                      onClick={() => setCamera({})}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <div className="look-row">
+                  {CAMERA_LOOKS.map((lk) => {
+                    const on = sameRecipe(camera, lk.recipe);
+                    return (
+                      <button
+                        key={lk.id}
+                        type="button"
+                        className={`look-tile ${on ? "on" : ""}`}
+                        title="Set a complete, coherent look in one tap — then tweak any axis"
+                        onClick={() => {
+                          setCamera(on ? {} : lk.recipe);
+                          if (isVideo && lk.motion && !on) setMotion(lk.motion);
+                        }}
+                      >
+                        <span className="look-bg" style={{ background: roleMesh(hueFor(lk.id)) }} />
+                        <LookArt id={lk.id} />
+                        <span className="look-scrim" />
+                        <span className="look-name">{lk.label}</span>
+                        {on && (
+                          <span className="look-check">
+                            <Icon name="check" size={11} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* FRAMING */}
+              <div className="row gap2 wrap" style={{ alignItems: "center" }}>
+                <span className="t-xs muted" style={{ width: 52, flex: "none" }}>Frame</span>
+                {FRAMING_OPTIONS.map((o) => (
                   <button
-                    key={mp.id}
+                    key={o.id}
                     type="button"
-                    className={`chip ${motion === mp.id ? "on" : ""}`}
-                    onClick={() => setMotion((c) => (c === mp.id ? "" : mp.id))}
+                    className={`chip ${camera.framing === o.id ? "on" : ""}`}
+                    title={o.phrase}
+                    onClick={() => setCamera((c) => ({ ...c, framing: c.framing === o.id ? undefined : o.id }))}
                   >
-                    {mp.label}
+                    {o.label}
                   </button>
                 ))}
-              </>
-            )}
-          </div>
-          {/* CAMERA RACK — shot / lens / light language, appended like house style (image + video) */}
-          {cameraOpen && (
-            <div className="col gap2" style={{ marginTop: 8 }}>
-              {CAMERA_PRESETS.map((g) => (
-                <div key={g.group} className="row gap2 wrap" style={{ alignItems: "center" }}>
-                  <span className="t-xs muted" style={{ width: 44, flex: "none" }}>{g.label}</span>
-                  {g.options.map((o) => (
+                {promptHasFraming && (
+                  <span className="t-xs muted" title="Your prompt already frames the shot — adding here may double up">· framed in prompt</span>
+                )}
+              </div>
+
+              {/* DEPTH — one continuous deep↔shallow dial replacing focal+aperture */}
+              <div className="row gap2 wrap" style={{ alignItems: "center" }}>
+                <span className="t-xs muted" style={{ width: 52, flex: "none" }}>Depth</span>
+                <button
+                  type="button"
+                  className={`chip ${camera.depth != null ? "on" : ""}`}
+                  style={{ minWidth: 82 }}
+                  title={camera.depth != null ? "Depth of field — tap to turn off" : "Add a depth-of-field direction"}
+                  onClick={() => setCamera((c) => ({ ...c, depth: c.depth == null ? 50 : undefined }))}
+                >
+                  {camera.depth == null ? "Off" : depthStop(camera.depth).gear}
+                </button>
+                {camera.depth != null && (
+                  <div className="row gap2" style={{ alignItems: "center", flex: 1, minWidth: 220, maxWidth: 380 }}>
+                    <span className="t-xs muted" style={{ flex: "none" }}>Deep</span>
+                    <input
+                      className="rng"
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={camera.depth}
+                      aria-label="Depth of field — deep to shallow"
+                      onChange={(e) => setCamera((c) => ({ ...c, depth: Number(e.target.value) }))}
+                    />
+                    <span className="t-xs muted" style={{ flex: "none" }}>Shallow</span>
+                  </div>
+                )}
+                {promptHasDepth && (
+                  <span className="t-xs muted" title="Your prompt already mentions a lens/aperture — adding here may double up">· lens in prompt</span>
+                )}
+              </div>
+
+              {/* LIGHT */}
+              <div className="row gap2 wrap" style={{ alignItems: "center" }}>
+                <span className="t-xs muted" style={{ width: 52, flex: "none" }}>Light</span>
+                {LIGHT_OPTIONS.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`chip ${camera.light === o.id ? "on" : ""}`}
+                    title={o.phrase}
+                    onClick={() => setCamera((c) => ({ ...c, light: c.light === o.id ? undefined : o.id }))}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+                {promptHasLight && (
+                  <span className="t-xs muted" title="Your prompt already describes the light — adding here may double up">· lit in prompt</span>
+                )}
+              </div>
+
+              {/* MOTION — video only; how the camera moves through the shot */}
+              {isVideo && (
+                <div className="row gap2 wrap" style={{ alignItems: "center" }}>
+                  <span className="t-xs muted" style={{ width: 52, flex: "none" }}>Motion</span>
+                  {MOTION_PRESETS.map((mp) => (
                     <button
-                      key={o.id}
+                      key={mp.id}
                       type="button"
-                      className={`chip ${camera[g.group] === o.id ? "on" : ""}`}
-                      title={o.phrase}
-                      onClick={() =>
-                        setCamera((c) => ({ ...c, [g.group]: c[g.group] === o.id ? "" : o.id }))
-                      }
+                      className={`chip ${motion === mp.id ? "on" : ""}`}
+                      title={mp.phrase}
+                      onClick={() => setMotion((c) => (c === mp.id ? "" : mp.id))}
                     >
-                      {o.label}
+                      <Icon name={mp.glyph} size={13} /> {mp.label}
                     </button>
                   ))}
                 </div>
-              ))}
-            </div>
-          )}
-          {!prompt.trim() && (
-            <div className="row gap2 wrap" style={{ marginTop: 8, alignItems: "center" }}>
-              <span className="t-xs muted">Try</span>
-              {EXAMPLES[mode].map((ex) => (
-                <button
-                  key={ex}
-                  type="button"
-                  className="chip"
-                  title={ex}
-                  style={{ maxWidth: 320 }}
-                  onClick={() => {
-                    setPrompt(ex);
-                    promptRef.current?.focus();
-                  }}
-                >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex}</span>
-                </button>
-              ))}
+              )}
+
+              {/* ONE-VARIABLE RE-ROLL — sweep a single axis, hold everything else */}
+              {!isVideo && (
+                <div className="row gap2 wrap" style={{ alignItems: "center", borderTop: "1px solid var(--line-2)", paddingTop: 8 }}>
+                  <span className="t-xs muted" style={{ width: 52, flex: "none" }} title="Fire one render per value of a single axis — your one-variable iteration, made a button">Vary</span>
+                  {SWEEP_AXES.map((s) => (
+                    <button
+                      key={s.axis}
+                      type="button"
+                      className={`chip ${sweepAxis === s.axis ? "on" : ""}`}
+                      title={`Render ${s.values.length} variants sweeping ${s.label.toLowerCase()}, holding prompt + every other setting`}
+                      onClick={() => setSweepAxis((a) => (a === s.axis ? null : s.axis))}
+                    >
+                      {s.label} ×{s.values.length}
+                    </button>
+                  ))}
+                  {sweepAxis && (
+                    <span className="t-xs muted">
+                      {hasSeed ? "· locked base — only this axis changes" : "· explore — base may also drift"}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1086,6 +1389,7 @@ export default function CreatePage() {
                 onMore={() => setMore(true)}
                 isVideo={isVideo}
               />
+              <VariantSwitch models={catalog} value={model} onChange={setModel} />
               {ratios.length > 0 && (
                 <Seg options={ratios.map((r) => ({ value: r, label: r }))} value={ratio} onChange={setRatio} />
               )}
@@ -1103,18 +1407,30 @@ export default function CreatePage() {
               {/* Brand picker sits where Generate used to — project + sub-brand in one tap */}
               <BrandPicker brands={brandList} value={brandId} onChange={setBrandId} />
               <div className="composer-cost mono">
-                <span className="amt">{est ? <CountUp value={est.usd} decimals={est.usd >= 1 ? 2 : 3} prefix="$" /> : "—"}</span>
-                {budget && <span className="t-xs muted">{usd(budget.remainingWeekUsd)} left this week</span>}
+                <span className="amt">{est ? <CountUp value={sweeping ? sweepTotalUsd : est.usd} decimals={(sweeping ? sweepTotalUsd : est.usd) >= 1 ? 2 : 3} prefix="$" /> : "—"}</span>
+                {sweeping ? (
+                  <span className="t-xs muted">{sweepValues.length} variants · 1 axis</span>
+                ) : budget ? (
+                  <span className="t-xs muted">{usd(budget.remainingWeekUsd)} left this week</span>
+                ) : null}
               </div>
               {/* Generate anchored to the lower-right corner of the box */}
               <Btn
                 variant="primary"
                 size="lg"
-                disabled={busy || !prompt.trim() || !est || overCap || missingRef}
+                disabled={(busy || sweepBusy) || !prompt.trim() || !est || (sweeping ? sweepOverCap : overCap) || missingRef}
                 onClick={onGenerate}
-                title={missingRef ? "Add a reference first" : `Generate (${mod}↵)`}
+                title={missingRef ? "Add a reference first" : sweeping ? `Render ${sweepValues.length} variants sweeping one axis` : `Generate (${mod}↵)`}
               >
-                {busy ? "Queueing…" : missingRef ? "Needs a reference" : overThreshold ? "Review spend" : "Generate"}
+                {busy || sweepBusy
+                  ? "Queueing…"
+                  : missingRef
+                  ? "Needs a reference"
+                  : sweeping
+                  ? (sweepOverThreshold ? "Review spend" : `Render ${sweepValues.length} variants`)
+                  : overThreshold
+                  ? "Review spend"
+                  : "Generate"}
                 <Icon name="arrowRight" size={16} />
               </Btn>
             </div>
@@ -1142,7 +1458,7 @@ export default function CreatePage() {
         {/* role status + advanced toggle */}
         <div className="composer-hints">
           <span className="t-label" style={{ margin: 0 }}>
-            {employee ? `${employee.name} style auto-appended` : "No role — raw prompt"}
+            {employee ? `${employee.name} style auto-appended` : "Standard — base model, raw prompt"}
           </span>
           <span className="kbd-hint">
             <kbd>{mod}</kbd><kbd>↵</kbd> to generate
@@ -1192,11 +1508,18 @@ export default function CreatePage() {
                     <span className="t-xs" style={{ color: "var(--tx-2)", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 42 }}>
                       {s.prompt}
                     </span>
-                    {isVideo && s.motion && (
-                      <span className="chip soft" style={{ height: 18, alignSelf: "flex-start" }}>
-                        {MOTION_PRESETS.find((m) => m.id === s.motion)?.label}
-                      </span>
-                    )}
+                    <div className="row gap1 wrap">
+                      {cameraBadge(s.camera) && (
+                        <span className="chip soft" style={{ height: 18 }} title="Camera direction for this shot">
+                          {cameraBadge(s.camera)}
+                        </span>
+                      )}
+                      {isVideo && s.motion && (
+                        <span className="chip soft" style={{ height: 18 }}>
+                          {MOTION_PRESETS.find((m) => m.id === s.motion)?.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
                 <button
@@ -1212,10 +1535,16 @@ export default function CreatePage() {
               </div>
 
               <div className="between wrap" style={{ marginTop: 14, gap: 12 }}>
-                <label className="row gap2" style={{ alignItems: "center" }}>
-                  <span className="t-xs muted">Sequence name</span>
-                  <input className="input" value={seqName} onChange={(e) => setSeqName(e.target.value)} style={{ height: 30, width: 160, fontSize: 12.5 }} />
-                </label>
+                <div className="row gap4 wrap" style={{ alignItems: "center" }}>
+                  <label className="row gap2" style={{ alignItems: "center" }}>
+                    <span className="t-xs muted">Sequence name</span>
+                    <input className="input" value={seqName} onChange={(e) => setSeqName(e.target.value)} style={{ height: 30, width: 160, fontSize: 12.5 }} />
+                  </label>
+                  <label className="row gap2" style={{ alignItems: "center", cursor: "pointer" }} title="Hold the composer's current depth + light across every shot (brand-DNA lens lock); each shot keeps its own framing">
+                    <Switch on={seqLockLens} onChange={setSeqLockLens} />
+                    <span className="t-xs muted">Lock lens across shots</span>
+                  </label>
+                </div>
                 <div className="row gap3" style={{ alignItems: "center" }}>
                   <div className="composer-cost mono" style={{ textAlign: "right" }}>
                     <span className="amt">{shots.length > 0 && est ? money(seqTotalUsd) : "—"}</span>
@@ -1270,9 +1599,9 @@ export default function CreatePage() {
       {/* ADVANCED — everything lives here, one click away */}
       {more && (
         <Card pad className="adv-panel">
-          {/* MODEL ROUTER — full fal catalog, top models pinned */}
+          {/* MODEL ROUTER — one card per model family; swap variants inline */}
           <div className="between" style={{ alignItems: "center" }}>
-            <span className="t-label" style={{ margin: 0 }}>Model router — full fal catalog, top models pinned</span>
+            <span className="t-label" style={{ margin: 0 }}>Models — pick one, swap the source inline</span>
             <label className="row gap2" style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 9, color: "var(--tx-3)", display: "grid", placeItems: "center", pointerEvents: "none" }}>
                 <Icon name="search" size={13} />
@@ -1281,7 +1610,7 @@ export default function CreatePage() {
                 className="input"
                 value={modelQuery}
                 onChange={(e) => setModelQuery(e.target.value)}
-                placeholder="Search the catalog…"
+                placeholder="Search models…"
                 style={{ paddingLeft: 28, height: 30, width: 200, fontSize: 12 }}
               />
             </label>
@@ -1293,31 +1622,34 @@ export default function CreatePage() {
                 <Icon name="spark" size={11} /> Top models — the ones we primarily use
               </div>
               <div className="row gap2 wrap">
-                {catalog
-                  .filter((m) => m.featured)
-                  .map((m) => (
-                    <ModelChip key={m.id} m={m} on={model === m.id} onClick={() => setModel(m.id)} />
+                {families
+                  .filter((f) => f.featured)
+                  .map((f) => (
+                    <FamilyCard key={f.key} family={f} currentId={model} onPick={setModel} />
                   ))}
               </div>
             </div>
           )}
 
           <div className="col gap3" style={{ marginTop: 14 }}>
-            {CATEGORY_ORDER.map((cat) => {
-              const list = catalogMatches.filter((m) => m.category === cat);
+            {([
+              { key: "image", label: "Image" },
+              { key: "video", label: "Video" },
+            ] as const).map(({ key, label }) => {
+              const list = familyMatches.filter((f) => f.isVideo === (key === "video"));
               if (list.length === 0) return null;
               return (
-                <div key={cat}>
-                  <div className="t-xs muted" style={{ marginBottom: 6 }}>{CATEGORY_LABEL[cat] ?? cat}</div>
+                <div key={key}>
+                  <div className="t-xs muted" style={{ marginBottom: 6 }}>{label}</div>
                   <div className="row gap2 wrap">
-                    {list.map((m) => (
-                      <ModelChip key={m.id} m={m} on={model === m.id} onClick={() => setModel(m.id)} />
+                    {list.map((f) => (
+                      <FamilyCard key={f.key} family={f} currentId={model} onPick={setModel} />
                     ))}
                   </div>
                 </div>
               );
             })}
-            {catalogMatches.length === 0 && (
+            {familyMatches.length === 0 && (
               <p className="t-sm muted">No models match &ldquo;{modelQuery}&rdquo;.</p>
             )}
           </div>
@@ -1399,7 +1731,7 @@ export default function CreatePage() {
               {employee?.studio?.style && <span style={{ color: "var(--accent-hi)" }}>, {employee.studio.style}</span>}
               {brandStyle && <span style={{ color: "var(--starxi)" }}>, {brandStyle}</span>}
               {motionNote && <span style={{ color: "var(--accent-hi)" }}>, {motionNote}</span>}
-              {cameraPhrase && <span style={{ color: "var(--accent-hi)" }}>, {cameraPhrase}</span>}
+              {camPhrase && <span style={{ color: "var(--accent-hi)" }}>, {camPhrase}</span>}
               {negative && <span style={{ color: "var(--bad-tx)" }}> — avoid: {negative}</span>}
             </div>
           )}
@@ -1424,7 +1756,7 @@ export default function CreatePage() {
         <SpendTakeover
           estimate={est.usd}
           modelLabel={modelInfo?.label ?? model}
-          spec={isVideo ? `${seconds}s · ${ratio}` : `×${numImages} · ${ratio}`}
+          spec={isVideo ? `${numImages > 1 ? `${numImages}×` : ""}${seconds}s · ${ratio}` : `×${numImages} · ${ratio}`}
           afterWeek={budget.spentWeekUsd + est.usd}
           weeklyCap={budget.settings.weeklyCapUsd}
           overCap={overCap}
@@ -1445,6 +1777,36 @@ export default function CreatePage() {
           busy={seqBusy}
           onCancel={() => setSeqSpendOpen(false)}
           onConfirm={() => runSequence(true)}
+        />
+      )}
+
+      {sweepSpendOpen && est && budget && sweepAxis && (
+        <SpendTakeover
+          estimate={sweepTotalUsd}
+          modelLabel={`${modelInfo?.label ?? model} · ${sweepValues.length} variants`}
+          spec={`vary ${sweepAxis} · ${sweepValues.length}×1 · ${ratio} · ${hasSeed ? "locked base" : "explore"}`}
+          afterWeek={budget.spentWeekUsd + sweepTotalUsd}
+          weeklyCap={budget.settings.weeklyCapUsd}
+          overCap={sweepOverCap}
+          busy={sweepBusy}
+          onCancel={() => setSweepSpendOpen(false)}
+          onConfirm={() => runSweep(true)}
+        />
+      )}
+
+      {trimFile && modelInfo && (
+        <TrimModal
+          file={trimFile}
+          maxSec={modelInfo.refMedia.maxVideoSec}
+          maxMB={modelInfo.refMedia.maxVideoMB}
+          model={model}
+          project={project}
+          onCancel={() => setTrimFile(null)}
+          onComplete={(assets) => {
+            addRefAssets(assets);
+            setTrimFile(null);
+            toast({ kind: "ok", title: "Trimmed & added ✂️", sub: "Your clip is in as a reference" });
+          }}
         />
       )}
     </div>

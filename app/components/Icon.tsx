@@ -15,6 +15,7 @@ const PATHS: Record<string, string> = {
   gauge: "M12 13l4-4M5.6 18a9 9 0 1112.8 0M12 13a1 1 0 100-2 1 1 0 000 2z",
   trophy: "M7 4h10v4a5 5 0 01-10 0zM7 6H4v1a4 4 0 004 4M17 6h3v1a4 4 0 01-4 4M9 18h6M10 18l.5-3h3l.5 3M8 21h8",
   play: "M8 5l11 7-11 7z",
+  pause: "M9 4v16M15 4v16",
   image: "M4 5h16v14H4zM8.5 11a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM4 16l5-5 4 4 3-3 4 4",
   video: "M4 6h11v12H4zM15 10l5-3v10l-5-3z",
   check: "M5 13l4 4 10-11",
@@ -46,6 +47,17 @@ const PATHS: Record<string, string> = {
   compress: "M9 3v3a2 2 0 01-2 2H4M20 8h-3a2 2 0 01-2-2V3M15 21v-3a2 2 0 012-2h3M4 16h3a2 2 0 012 2v3",
   eye: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7zM12 9a3 3 0 100 6 3 3 0 000-6z",
   eyeoff: "M3 3l18 18M10.6 10.6a3 3 0 004.2 4.2M9.9 4.6A9.6 9.6 0 0112 4.5c6.4 0 10 7.5 10 7.5a18 18 0 01-3 3.7M6.1 6.1A18 18 0 002 12s3.6 7.5 10 7.5a9.6 9.6 0 003.9-.8",
+  tools: "M3 7h18M3 12h18M3 17h18M8 5a2 2 0 100 4 2 2 0 000-4M16 10a2 2 0 100 4 2 2 0 000-4M7 15a2 2 0 100 4 2 2 0 000-4",
+  crop: "M6 2v14a2 2 0 002 2h14M2 6h14a2 2 0 012 2v14",
+  captions: "M4 6h16v9H7l-3 3zM8 10h2M12 10h4M8 13h6",
+  layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17l9 5 9-5",
+  audio: "M11 5L6 9H3v6h3l5 4zM15.5 9a3.5 3.5 0 010 6M18.5 6.5a7 7 0 010 11",
+  // Camera-movement glyphs — used in the Motion presets so the move reads at a glance.
+  mPush: "M4 12h10M10 8l4 4-4 4M19 4v16", // dolly toward subject (arrow → wall)
+  mOrbit: "M20 12a8 8 0 1 1-3-6.1M20 5.9v2.6h-2.6", // arc + arrowhead = orbital move
+  mHandheld: "M3 12c2-4 4 4 6 0s4-4 6 0 4 4 6 0", // wave = natural shake
+  mLocked: "M8 5H5v3M16 5h3v3M8 19H5v-3M16 19h3v-3M11 12h2", // corner brackets = locked frame
+  mCrash: "M4 8V4h4M4 4l4 4M20 8V4h-4M20 4l-4 4M4 16v4h4M4 20l4-4M20 16v4h-4M20 20l-4-4", // 4 inward arrows = crash zoom
 };
 
 const SOLID = new Set(["bolt", "play", "dot"]);

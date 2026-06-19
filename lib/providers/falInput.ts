@@ -24,6 +24,9 @@ export interface GenerateSpec {
   refAudioUrls?: string[];
   /** Kling-family native artifact suppression. */
   negativePrompt?: string;
+  /** Fixed seed for a locked-base one-variable re-roll. Only sent for models
+   *  whose constraints declare `seed` (lib/pricing hasSeed) — the route gates it. */
+  seed?: number;
 }
 
 const GPT_SIZE_BY_RATIO: Record<string, string> = {
@@ -95,12 +98,14 @@ export function buildFalInput(model: string, spec: GenerateSpec): Record<string,
       return input;
     }
 
-    // FLUX / Qwen text-to-image use image_size presets (same keys as GPT).
+    // FLUX / Qwen text-to-image use image_size presets (same keys as GPT). These
+    // accept a seed (constraints.seed) — passed for a locked-base re-roll.
     if (model.startsWith("fal-ai/flux") || model.startsWith("fal-ai/qwen-image")) {
       return {
         prompt: spec.prompt,
         num_images: spec.numImages,
         image_size: GPT_SIZE_BY_RATIO[spec.ratio] ?? "square_hd",
+        ...(spec.seed != null ? { seed: spec.seed } : {}),
       };
     }
 

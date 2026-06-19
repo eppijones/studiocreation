@@ -11,10 +11,14 @@ import {
   DELIVERY_PRESETS,
   COLOR_LOOKS,
   lookVf,
+  lookCss,
+  captionVf,
   ffmpegCommand,
   ffmpegImageCommand,
   type FinishAction,
+  type CaptionPos,
 } from "@/lib/finishing";
+import { ExportPreview } from "./ExportPreview";
 
 interface DeliverAsset {
   id: number;
@@ -45,6 +49,8 @@ export default function DeliverPage() {
   const [assets, setAssets] = useState<DeliverAsset[]>([]);
   const [presetByAsset, setPresetByAsset] = useState<Record<number, string>>({});
   const [lookByAsset, setLookByAsset] = useState<Record<number, string>>({});
+  const [captionByAsset, setCaptionByAsset] = useState<Record<number, string>>({});
+  const [captionPosByAsset, setCaptionPosByAsset] = useState<Record<number, CaptionPos>>({});
   const [fpsByAsset, setFpsByAsset] = useState<Record<number, number>>({});
   const [tagDraft, setTagDraft] = useState<Record<number, string>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -159,12 +165,15 @@ export default function DeliverPage() {
               DELIVERY_PRESETS.find((p) => p.id === presetByAsset[asset.id]) ?? DELIVERY_PRESETS[0];
             const lookId = lookByAsset[asset.id] ?? "none";
             const grade = lookVf(lookId);
+            const captionText = captionByAsset[asset.id] ?? "";
+            const captionPos = captionPosByAsset[asset.id] ?? "bottom";
+            const caption = captionVf(captionText, captionPos);
             const derived = derivedOf(asset.id);
             const lookSuffix = grade ? `_${lookId}` : "";
             const outName = `${asset.project}_${asset.label}_${preset.id}${lookSuffix}.${isVideo ? "mp4" : "png"}`;
             const cmd = isVideo
-              ? ffmpegCommand(preset, asset.blob_url, outName, grade)
-              : ffmpegImageCommand(preset, asset.blob_url, outName, grade);
+              ? ffmpegCommand(preset, asset.blob_url, outName, grade, caption)
+              : ffmpegImageCommand(preset, asset.blob_url, outName, grade, caption);
             const fps = fpsByAsset[asset.id] ?? 30;
             const upscaleEst = isVideo
               ? Math.max(Math.ceil(asset.duration_s ?? 5), 1) * 0.08 * (fps >= 50 ? 2 : 1)
@@ -331,17 +340,17 @@ export default function DeliverPage() {
                         {copied === cmdKey ? "Copied" : "Copy command"}
                       </Btn>
                     </div>
-                    <div className="row gap2 wrap">
-                      {DELIVERY_PRESETS.map((p) => (
-                        <Chip
-                          key={p.id}
-                          on={preset.id === p.id}
-                          onClick={() => setPresetByAsset((prev) => ({ ...prev, [asset.id]: p.id }))}
-                        >
-                          {p.ratio} · {p.width}×{p.height}
-                        </Chip>
-                      ))}
-                    </div>
+                    {/* WYSIWYG previewer — every format framed exactly as its
+                        recipe will crop / letterbox it; click to pick. */}
+                    <ExportPreview
+                      src={asset.blob_url}
+                      isVideo={!!isVideo}
+                      gradeCss={lookCss(lookId)}
+                      caption={captionText}
+                      captionPos={captionPos}
+                      selectedId={preset.id}
+                      onSelect={(id) => setPresetByAsset((prev) => ({ ...prev, [asset.id]: id }))}
+                    />
                     {/* COLOR GRADE — optional $0 built-in look, baked into the same recipe */}
                     <div className="row gap2 wrap" style={{ alignItems: "center" }}>
                       <span className="t-xs muted" style={{ marginRight: 2 }}>Grade</span>
@@ -354,6 +363,28 @@ export default function DeliverPage() {
                           {l.label}
                         </Chip>
                       ))}
+                    </div>
+                    {/* CAPTION — optional $0 burned-in hook / CTA via drawtext */}
+                    <div className="row gap2 wrap" style={{ alignItems: "center" }}>
+                      <span className="t-xs muted" style={{ marginRight: 2 }}>Caption</span>
+                      <input
+                        className="input"
+                        style={{ height: 30, fontSize: 12, width: 260 }}
+                        placeholder="Burn-in hook / CTA text (optional)"
+                        value={captionText}
+                        onChange={(e) => setCaptionByAsset((p) => ({ ...p, [asset.id]: e.target.value }))}
+                      />
+                      {captionText.trim() && (
+                        <Seg
+                          options={[
+                            { value: "bottom", label: "Bottom" },
+                            { value: "center", label: "Center" },
+                            { value: "top", label: "Top" },
+                          ]}
+                          value={captionPos}
+                          onChange={(v) => setCaptionPosByAsset((p) => ({ ...p, [asset.id]: v as CaptionPos }))}
+                        />
+                      )}
                     </div>
                     <pre
                       style={{

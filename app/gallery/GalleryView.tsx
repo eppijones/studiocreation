@@ -622,7 +622,7 @@ export function GalleryView({ initialOpenId }: { initialOpenId?: number } = {}) 
         </div>
       </div>
 
-      <div className="split" style={{ gridTemplateColumns: "224px 1fr" }}>
+      <div className="split gallery-wall" style={{ gridTemplateColumns: "224px 1fr" }}>
         {/* ORGANIZER RAIL */}
         <Card pad style={{ alignSelf: "start", position: "sticky", top: 0 }}>
           <div className="col gap5">

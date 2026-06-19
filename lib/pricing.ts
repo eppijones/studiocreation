@@ -63,6 +63,8 @@ interface ModelConstraints {
   audio?: boolean;
   /** negative_prompt supported by the endpoint */
   negative?: boolean;
+  /** accepts a `seed` — enables a locked-base one-variable re-roll (vs. drift) */
+  seed?: boolean;
   /** cannot run from text alone — needs ≥1 reference */
   requiresRef?: boolean;
   refMedia?: Partial<RefMedia>;
@@ -170,6 +172,8 @@ export interface ModelInfo {
   audioBilled: boolean;
   hasFast: boolean;
   hasNegative: boolean;
+  /** accepts a seed — a one-variable re-roll can hold an identical base */
+  hasSeed: boolean;
   qualities: string[];
   ratios: string[];
   durations: DurationSpec;
@@ -220,10 +224,13 @@ export function listModels(): ModelInfo[] {
       audioBilled: m.audio_on !== undefined,
       hasFast: m.fast !== undefined,
       hasNegative: m.constraints?.negative === true,
+      hasSeed: m.constraints?.seed === true,
       qualities: Object.keys(m.qualities ?? {}),
       ratios: ratiosFor(m),
       durations: durationFor(m),
-      numImages: m.constraints?.numImages ?? { min: 1, max: m.unit === "image" ? 4 : 1 },
+      // "count" = how many to make in one go. Images batch into a single call;
+      // video fires one clip per count (the composer loops). Default up to 4.
+      numImages: m.constraints?.numImages ?? { min: 1, max: 4 },
       requiresRef:
         m.constraints?.requiresRef === true ||
         ["image-edit", "image-to-video", "reference-to-video"].includes(kind),

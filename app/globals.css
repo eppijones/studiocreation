@@ -148,6 +148,9 @@ html[data-skin="lumen"] {
 /* ---------- reset / base ---------- */
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+/* The view-transition snapshot layer sits above <body>; without a background on
+   <html> the cross-fade gap flashes the browser's default (white) backdrop. */
+html { background: var(--bg-0); }
 body {
   margin: 0;
   background: var(--bg-0);
@@ -327,6 +330,15 @@ html[data-skin="lumen"] .rail { background: rgba(255, 255, 255, 0.45); backdrop-
 .nav-divider { height: 20px; display: flex; align-items: center; }
 .nav-divider::after { content: ""; height: 1px; width: 100%; margin: 0 11px; background: var(--line-1); }
 
+.gauge-card-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line-1);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--accent-hi); text-decoration: none;
+  transition: gap var(--t-fast);
+}
+.gauge-card-link:hover { gap: 8px; filter: brightness(1.12); }
+
 .rail-foot { display: flex; flex-direction: column; gap: 8px; }
 .rail-op {
   display: flex; align-items: center; gap: 10px;
@@ -359,10 +371,36 @@ html[data-skin="lumen"] .rail { background: rgba(255, 255, 255, 0.45); backdrop-
 .screen-hd .titles { display: flex; flex-direction: column; gap: 6px; }
 .screen-hd .actions { display: flex; align-items: center; gap: 10px; }
 
-/* entrance */
+/* entrance — the fallback for browsers WITHOUT View Transitions only. Where the
+   API exists it owns the route entrance and a full refresh simply paints, so
+   screenin must NOT run there: it would replay after the cross-fade and on every
+   route key-remount, dipping the whole content column back to transparent (the
+   background bleeds through) before fading in again — the "blink". We gate it
+   with @supports rather than a class toggled during the transition, so on VT
+   browsers the animation is never applied at all and therefore can never be
+   restarted. */
 .screen-wrap { animation: screenin 0.42s var(--ease-out); }
+@supports (view-transition-name: none) {
+  .screen-wrap { animation: none; }
+}
 @keyframes screenin { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+
+/* ===================================================================
+   VIEW TRANSITIONS — one calm cross-fade between every route.
+   "Hold old, fade in new": the outgoing page stays at full opacity while
+   the incoming page fades in on top, so there is never a transparency gap
+   to flash the backdrop. No shared-element morphs — they ghosted on pages
+   without a matching element.
+   =================================================================== */
+::view-transition-old(root) { animation: none; }
+::view-transition-new(root) { animation: vtFadeIn 0.2s var(--ease-out) both; }
+@keyframes vtFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none !important; }
+}
 
 /* ===================================================================
    COMPONENTS
@@ -874,6 +912,66 @@ html[data-skin="lumen"] .sheet { background: var(--glass-fill); backdrop-filter:
 .spend-dim { position: absolute; inset: 0; background: rgba(3,4,6,0.74); backdrop-filter: blur(18px) saturate(0.8); }
 .spend-card { position: relative; width: 460px; padding: 28px; border-radius: var(--r-xl); display: flex; flex-direction: column; gap: 18px; background: var(--bg-2); border: 1px solid var(--line-2); box-shadow: var(--el-pop); animation: sheetin var(--t-slow) var(--ease-snap); }
 html[data-skin="lumen"] .spend-card { background: var(--glass-fill); backdrop-filter: var(--glass-blur); }
+
+/* ── trim & edit modal ─────────────────────────────────────────────────────── */
+.trim-overlay { position: fixed; inset: 0; z-index: 130; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.trim-dim { position: absolute; inset: 0; background: rgba(3, 4, 6, 0.74); backdrop-filter: blur(18px) saturate(0.8); }
+.trim-card {
+  position: relative; width: min(640px, 96vw); padding: 20px; border-radius: var(--r-xl);
+  display: flex; flex-direction: column; gap: 16px;
+  background: var(--bg-2); border: 1px solid var(--line-2); box-shadow: var(--el-pop);
+  animation: sheetin var(--t-slow) var(--ease-snap);
+}
+html[data-skin="lumen"] .trim-card { background: var(--glass-fill); backdrop-filter: var(--glass-blur); }
+.trim-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.trim-title { font-family: var(--font-display); font-size: 18px; font-weight: 660; letter-spacing: -0.02em; }
+.trim-stage {
+  position: relative; border-radius: var(--r-md); overflow: hidden; background: #06070c;
+  aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-1);
+}
+.trim-video { width: 100%; height: 100%; object-fit: contain; cursor: pointer; display: block; }
+.trim-play {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in oklab, var(--accent) 78%, transparent); color: var(--accent-tx);
+  border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px); transition: transform var(--t-fast) var(--ease-snap), background var(--t-fast);
+}
+.trim-play:hover { transform: translate(-50%, -50%) scale(1.07); background: var(--accent); }
+.trim-time { display: flex; flex-direction: column; gap: 8px; }
+.trim-track {
+  position: relative; height: 46px; border-radius: var(--r-sm); cursor: pointer;
+  background:
+    repeating-linear-gradient(90deg, transparent 0, transparent 13px, var(--line-1) 13px, var(--line-1) 14px),
+    var(--bg-1);
+  border: 1px solid var(--line-2); touch-action: none;
+}
+.trim-sel {
+  position: absolute; top: -1px; bottom: -1px;
+  background: color-mix(in oklab, var(--accent) 20%, transparent);
+  border: 1.5px solid var(--accent-line); border-radius: var(--r-sm);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent) inset;
+}
+.trim-playhead { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.8); pointer-events: none; transform: translateX(-1px); }
+.trim-handle {
+  position: absolute; top: -3px; bottom: -3px; width: 16px; transform: translateX(-50%);
+  display: grid; place-items: center; cursor: ew-resize; background: transparent; border: 0; touch-action: none;
+}
+.trim-handle span {
+  width: 8px; height: 100%; border-radius: 5px; background: var(--accent-hi);
+  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+}
+.trim-handle:hover span { background: var(--accent); }
+.trim-scale { display: flex; align-items: center; justify-content: space-between; }
+.trim-seln { font-weight: 600; }
+.trim-seln.ok { color: var(--ok-tx, var(--ok)); }
+.trim-seln.bad { color: var(--warn-tx); }
+.trim-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) {
+  .trim-card { animation: none; }
+  .trim-play, .trim-play:hover { transition: none; }
+}
 .spend-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; color: var(--warn-tx); text-transform: uppercase; }
 .spend-amount { font-family: var(--font-display); font-size: 52px; font-weight: 520; letter-spacing: -0.03em; line-height: 1; }
 .hold-btn { position: relative; overflow: hidden; width: 100%; padding: 15px; border-radius: var(--r-md); background: var(--bg-3); border: 1px solid var(--line-3); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; user-select: none; }
@@ -1011,6 +1109,39 @@ html[data-skin="lumen"] .toast { background: var(--glass-fill); backdrop-filter:
   transition: transform var(--t-slow) var(--ease-out);
 }
 .role-tile:hover .role-photo { transform: scale(1.05); }
+
+/* camera Look tiles — a compact, image-driven version of the role tile, sitting
+   inside the camera panel. Curated still over a hue-keyed mesh; accent ring when on. */
+.look-row { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.look-tile {
+  position: relative; width: 88px; aspect-ratio: 4 / 5; flex: none;
+  border-radius: var(--r-md); overflow: hidden; padding: 0;
+  border: 1px solid var(--line-1); cursor: pointer; background: var(--bg-2);
+  box-shadow: var(--el-1);
+  transition: transform var(--t-base) var(--ease-out), box-shadow var(--t-base), border-color var(--t-fast);
+}
+.look-tile:hover { transform: translateY(-2px); box-shadow: var(--el-2); }
+.look-tile.on { border-color: var(--accent-line); box-shadow: var(--glow-accent); }
+.look-bg { position: absolute; inset: 0; z-index: 0; opacity: 0.92; }
+.look-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1;
+  transition: transform var(--t-slow) var(--ease-out);
+}
+.look-tile:hover .look-photo { transform: scale(1.06); }
+.look-scrim {
+  position: absolute; inset: 0; z-index: 2;
+  background: linear-gradient(to top, rgba(6, 8, 16, 0.86) 6%, rgba(6, 8, 16, 0.26) 46%, transparent 72%);
+}
+.look-name {
+  position: absolute; left: 7px; right: 7px; bottom: 6px; z-index: 3;
+  font-size: 10.5px; font-weight: 600; line-height: 1.15; color: #fff; letter-spacing: -0.01em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+}
+.look-check {
+  position: absolute; top: 6px; right: 6px; z-index: 3; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-tx);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
 /* bottom scrim — just enough to float the name over any image */
 .role-scrim {
   position: absolute; inset: 0;
@@ -1090,8 +1221,67 @@ html[data-skin="lumen"] .toast { background: var(--glass-fill); backdrop-filter:
 .composer { position: relative; }
 
 /* reference dock — upload + gallery picker, inline in the composer */
-.ref-dock { border-top: 1px solid var(--line-1); padding: 10px 10px 4px; display: flex; flex-direction: column; gap: 10px; }
+.ref-dock { border-top: 1px solid var(--line-1); padding: 12px 10px 4px; display: flex; flex-direction: column; gap: 12px; }
 .ref-dock-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ref-count { color: var(--tx-3); font-size: 11px; margin-left: 2px; }
+/* required-reference status pill — quiet when satisfied, warns when not */
+.ref-req {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
+}
+.ref-req .led { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ref-req.miss { color: var(--warn-tx); }
+.ref-req.miss .led { background: var(--warn-tx); box-shadow: 0 0 0 3px color-mix(in oklab, var(--warn-tx) 22%, transparent); }
+.ref-req.ok { color: var(--ok, var(--accent-hi)); }
+.ref-req.ok .led { background: var(--ok, var(--accent-hi)); }
+
+/* big upload / gallery tiles — the primary way references get in, sized to invite a click */
+.ref-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ref-cta {
+  display: flex; align-items: center; gap: 13px; min-width: 0; text-align: left;
+  padding: 15px 16px; border-radius: var(--r-lg); cursor: pointer; font-family: inherit;
+  background: var(--bg-1); border: 1px solid var(--line-2); color: var(--tx-1);
+  transition: transform var(--t-fast) var(--ease-out), border-color var(--t-fast), box-shadow var(--t-base), background var(--t-fast);
+}
+.ref-cta:hover { transform: translateY(-2px); border-color: var(--line-3); box-shadow: var(--el-2); }
+.ref-cta:active { transform: translateY(0); }
+.ref-cta:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.ref-cta.upload { border-style: dashed; }
+.ref-cta.upload:hover:not(:disabled) { border-color: var(--accent-line); background: color-mix(in oklab, var(--accent) 5%, var(--bg-1)); }
+.ref-cta.gallery.on { border-color: var(--accent-line); background: var(--accent-wash); }
+.ref-cta-ico {
+  width: 46px; height: 46px; border-radius: var(--r-md); flex: none;
+  display: grid; place-items: center; color: var(--accent-hi);
+  background: var(--bg-3); border: 1px solid var(--line-2);
+  transition: transform var(--t-base) var(--ease-snap), color var(--t-fast), background var(--t-fast);
+}
+.ref-cta:hover:not(:disabled) .ref-cta-ico { transform: scale(1.06) rotate(-3deg); }
+.ref-cta.gallery.on .ref-cta-ico { background: var(--accent); border-color: transparent; color: var(--accent-tx); }
+.ref-cta-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ref-cta-title { font-family: var(--font-display); font-size: 15px; font-weight: 640; letter-spacing: -0.01em; }
+.ref-cta-sub { font-size: 11.5px; color: var(--tx-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-cta-chev { margin-left: auto; flex: none; color: var(--tx-3); }
+/* when a reference is required and missing, the tiles call for attention */
+.ref-actions.needs .ref-cta { border-color: color-mix(in oklab, var(--warn-tx) 45%, var(--line-2)); }
+.ref-actions.needs .ref-cta-ico { color: var(--warn-tx); }
+@media (max-width: 560px) { .ref-actions { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .ref-cta, .ref-cta-ico { transition-duration: 0.01ms !important; }
+  .ref-cta:hover { transform: none; }
+  .ref-cta:hover:not(:disabled) .ref-cta-ico { transform: none; }
+}
+/* accepted-file limits — bold, scannable badges instead of one cramped line */
+.ref-limits { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ref-limits-k {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tx-3);
+}
+.ref-limit {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 4px 9px; border-radius: var(--r-pill);
+  font-size: 11.5px; color: var(--tx-2);
+  background: var(--bg-1); border: 1px solid var(--line-2);
+}
+.ref-limit b { font-weight: 680; color: var(--tx-1); }
 .ref-strip { display: flex; gap: 8px; flex-wrap: wrap; }
 .ref-thumb { position: relative; }
 .ref-thumb-x {
@@ -1110,6 +1300,11 @@ html[data-skin="lumen"] .toast { background: var(--glass-fill); backdrop-filter:
   padding: 2px 5px; border-radius: 4px; color: var(--tx-2);
   background: var(--bg-1); border: 1px solid var(--line-1);
 }
+/* family variant range, e.g. "Text · Image · Refs" */
+.model-variants { font-size: 10.5px; color: var(--tx-3); letter-spacing: 0.01em; }
+/* inline variant switch in the composer bar — keep it visually lighter than the model chip */
+.variant-switch { display: inline-flex; }
+.variant-switch .seg { background: var(--bg-1); }
 .composer-hints { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 2px 4px; }
 .kbd-hint { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--tx-3); }
 .kbd-hint kbd {
@@ -1120,12 +1315,30 @@ html[data-skin="lumen"] .toast { background: var(--glass-fill); backdrop-filter:
 
 /* inline duration / count control inside the generate bar */
 .dock-ctl {
-  display: inline-flex; align-items: center; gap: 9px; height: 32px; padding: 0 11px;
+  display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 8px 0 12px;
   border-radius: var(--r-sm); background: var(--bg-1); border: 1px solid var(--line-2);
   font-size: 12px; color: var(--tx-2);
+  transition: border-color var(--t-fast);
 }
-.dock-ctl input.rng { width: 80px; }
-.dock-ctl .val { font-family: var(--font-mono); font-size: 12px; color: var(--accent-hi); min-width: 30px; text-align: right; }
+.dock-ctl:focus-within { border-color: var(--accent-line); }
+.dock-ctl-k { font-weight: 540; color: var(--tx-2); }
+.dock-ctl input.rng { width: 84px; }
+/* click-to-type value: editable number + unit, reads like a label until focused */
+.val-edit {
+  display: inline-flex; align-items: baseline; gap: 1px; height: 24px; padding: 0 6px;
+  border-radius: var(--r-xs); border: 1px solid transparent; background: var(--bg-3);
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.val-edit:hover { border-color: var(--line-2); }
+.val-edit:focus-within { border-color: var(--accent-line); background: var(--bg-1); }
+.val-input {
+  width: 26px; border: 0; background: transparent; text-align: right; padding: 0;
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--accent-hi);
+  -moz-appearance: textfield;
+}
+.val-input::-webkit-outer-spin-button, .val-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.val-input:focus { outline: none; }
+.val-suffix { font-family: var(--font-mono); font-size: 11px; color: var(--tx-3); }
 
 .chip.soft { background: var(--bg-1); color: var(--tx-3); cursor: default; }
 .chip.soft:hover { transform: none; border-color: var(--line-2); }
@@ -1515,3 +1728,56 @@ html[data-skin="lumen"] .bulkbar { background: var(--glass-fill); backdrop-filte
   .auth-showcase { display: none; }
   .auth-pane { padding: 24px; }
 }
+
+/* ---------- deliver · WYSIWYG export previewer ---------- */
+/* Each tile frames the source exactly as its $0 ffmpeg recipe will crop /
+   letterbox it; the grade is approximated live via a CSS filter. */
+.export-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+.export-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: center;
+}
+.export-frame {
+  position: relative;
+  overflow: hidden;
+  background: #000;            /* the baked black bars / letterbox */
+  border-radius: var(--r-sm);
+  border: 2px solid var(--line-1);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.export-tile:hover .export-frame { border-color: var(--accent-line); }
+.export-tile.on .export-frame {
+  border-color: var(--accent-hi);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+/* letterbox: the picture band sits centred, black bars fill the rest */
+.export-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  overflow: hidden;
+}
+.export-cap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  font-size: 11px;
+  color: var(--tx-2);
+}
+.export-cap b { color: var(--tx-1); font-weight: 620; }
+.export-tile.on .export-cap b { color: var(--accent-hi); }
+.export-dim { font-size: 9.5px; opacity: 0.7; font-variant-numeric: tabular-nums; }

@@ -88,6 +88,12 @@ export async function POST(request: Request) {
     info.hasNegative && typeof body.negativePrompt === "string" && body.negativePrompt.trim()
       ? body.negativePrompt.trim().slice(0, 500)
       : undefined;
+  // Seed only flows to models that accept one (hasSeed) — enables a locked-base
+  // one-variable re-roll. Clamped to a sane non-negative 32-bit range.
+  const seed: number | undefined =
+    info.hasSeed && Number.isFinite(Number(body.seed))
+      ? Math.abs(Math.trunc(Number(body.seed))) % 2147483647
+      : undefined;
 
   // Reference-required models can't run from text alone. Edit / image-to-video
   // need a still (start frame / subject); the reference-to-video stack accepts
@@ -131,7 +137,7 @@ export async function POST(request: Request) {
 
   const spec: GenerateSpec = {
     prompt, kind, numImages, seconds, ratio, audio, fast, tier, quality,
-    refImageUrls, refVideoUrls, refAudioUrls, negativePrompt,
+    refImageUrls, refVideoUrls, refAudioUrls, negativePrompt, seed,
   };
   const falInput = buildFalInput(model, spec);
   const endpoint = falEndpoint(model, spec);

@@ -67,9 +67,10 @@ export async function POST(request: Request) {
   const isVideo = modelUnit(model) === "video_second";
   const fromModel = await enhanceWithClaude(trimmed, isVideo);
   if (fromModel) {
-    return NextResponse.json({ enhanced: fromModel, added: [], changed: fromModel !== trimmed });
+    return NextResponse.json({ enhanced: fromModel, added: [], changed: fromModel !== trimmed, engine: "claude" });
   }
 
-  // No key, or the call failed — deterministic, model-aware stub keeps Enhance working.
-  return NextResponse.json(enhancePrompt(trimmed, model));
+  // No key, or the call failed — deterministic, model-aware stub keeps Enhance
+  // working. `engine: "heuristic"` lets the UI nudge toward the real AI rewrite.
+  return NextResponse.json({ ...enhancePrompt(trimmed, model), engine: "heuristic" });
 }

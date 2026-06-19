@@ -63,7 +63,7 @@
           "category": "image",
           "kind": "text-to-image",
           "promptHint": "FLUX reads natural, descriptive prose — lighting, lens, mood. Native 2K photorealism.",
-          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 } },
+          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 }, "seed": true },
           "notes": "Black Forest Labs flagship — native 2K (4MP) photorealism at $0.06/image."
         },
         "fal-ai/flux-pro/v1.1": {
@@ -74,7 +74,7 @@
           "category": "image",
           "kind": "text-to-image",
           "promptHint": "FLUX reads natural, descriptive prose — lighting, lens, mood. Production photorealism.",
-          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 } },
+          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 }, "seed": true },
           "notes": "Production photorealism, ~$0.04 per megapixel."
         },
         "fal-ai/flux/dev": {
@@ -85,7 +85,7 @@
           "category": "image",
           "kind": "text-to-image",
           "promptHint": "Best price/quality FLUX. Descriptive prose, strong prompt adherence.",
-          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 } },
+          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 }, "seed": true },
           "notes": "Best price/quality open-weight workhorse at $0.025/image."
         },
         "fal-ai/flux-1/schnell": {
@@ -96,7 +96,7 @@
           "category": "image",
           "kind": "text-to-image",
           "promptHint": "Fastest FLUX for drafts and batch — keep prompts concise.",
-          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 } },
+          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 }, "seed": true },
           "notes": "Fastest, cheapest draft model — $0.003 per megapixel."
         },
         "fal-ai/qwen-image": {
@@ -107,7 +107,7 @@
           "category": "image",
           "kind": "text-to-image",
           "promptHint": "Qwen excels at complex text rendering and precise layout — spell exact text in quotes.",
-          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 } },
+          "constraints": { "ratios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"], "numImages": { "min": 1, "max": 4 }, "seed": true },
           "notes": "Strong complex text rendering and layout, ~$0.02 per megapixel."
         },
         "fal-ai/flux-pro/kontext": {

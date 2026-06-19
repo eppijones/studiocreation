@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { TransitionLink as Link } from "./nav";
 import { Icon } from "./Icon";
 import { FuelGauge, ToastProvider, CountUp, useToast } from "./ui";
 import { getSkin, toggleSkin, usd, isInFlight, type Skin, type ClientJob } from "./studio";
@@ -15,10 +15,11 @@ type NavItem = { href: string; label: string; icon: string; badge?: "run" | "sco
 // below a divider. Briefs / Workflows / Deliver stay routable but out
 // of the everyday rail.
 const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Showcase", icon: "gallery" },
+  { href: "/", label: "Home", icon: "dashboard" },
   { href: "/create", label: "Create", icon: "create" },
+  { href: "/gallery", label: "Media Library", icon: "image", badge: "score" },
+  { href: "/tools", label: "Production Tools", icon: "tools" },
   { href: "/brands", label: "Brands", icon: "spark" },
-  { href: "/gallery", label: "Gallery", icon: "image", badge: "score" },
 ];
 const DEEPER_NAV: NavItem[] = [
   { href: "/queue", label: "Generations", icon: "queue", badge: "run" },
@@ -206,6 +207,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   const weekPct = budget ? Math.round((budget.spentWeekUsd / budget.settings.weeklyCapUsd) * 100) : 0;
   const hot = weekPct >= 75;
+  // "Space available" = how much of the monthly team pool is still free to create with.
+  const poolFreePct = budget
+    ? Math.max(0, Math.round((budget.remainingMonthUsd / budget.settings.monthlyPoolUsd) * 100))
+    : 0;
+  const poolLow = poolFreePct <= 15;
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const activeIndex = NAV.findIndex((n) => isActive(n.href));
   const inkTop = activeIndex < 0 ? 0 : activeIndex * 42 + (activeIndex >= PRIMARY_NAV.length ? DIVIDER_OFFSET : 0);
@@ -241,9 +247,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <Icon name="bolt" size={17} />
               </span>
               <span>
-                <span className="name">StudioCreation</span>
+                <span className="name">Portal One</span>
                 <br />
-                <span className="sub">Production Studio</span>
+                <span className="sub">Media Platform</span>
               </span>
             </Link>
 
@@ -273,11 +279,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <span><CountUp value={budget.spentWeekUsd} prefix="$" /> used</span>
                   <span style={{ color: "var(--tx-2)" }}><CountUp value={budget.remainingWeekUsd} prefix="$" /> left</span>
                 </div>
-                <div className="hr" style={{ margin: "10px 0" }} />
-                <div className="between mono t-xs">
+
+                <div className="hr" style={{ margin: "11px 0" }} />
+
+                {/* Space available — how much of the monthly team pool is free to create with */}
+                <div className="between" style={{ marginBottom: 8 }}>
+                  <span className="t-label">Space available</span>
+                  <span className="mono t-xs" style={{ color: poolLow ? "var(--warn-tx)" : "var(--ok-tx)" }}>
+                    {poolFreePct}% free
+                  </span>
+                </div>
+                <FuelGauge spent={budget.spentMonthUsd} cap={budget.settings.monthlyPoolUsd} showMark={false} />
+                <div className="between mono t-xs" style={{ marginTop: 8 }}>
                   <span className="muted">Team pool</span>
-                  <span>
-                    {usd(budget.spentMonthUsd)} / {usd(budget.settings.monthlyPoolUsd, 0)}
+                  <span style={{ color: "var(--tx-2)" }}>
+                    <CountUp value={budget.remainingMonthUsd} prefix="$" /> of {usd(budget.settings.monthlyPoolUsd, 0)}
                   </span>
                 </div>
                 {budget.jobsWeek > 0 && (
@@ -289,6 +305,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </span>
                   </div>
                 )}
+                <Link href="/costs" className="gauge-card-link">
+                  Full costs &amp; ledger
+                  <Icon name="arrowRight" size={12} />
+                </Link>
               </div>
             )}
 

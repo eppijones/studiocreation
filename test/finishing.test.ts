@@ -3,6 +3,7 @@ import {
   DELIVERY_PRESETS,
   COLOR_LOOKS,
   lookVf,
+  captionVf,
   ffmpegCommand,
   ffmpegImageCommand,
   buildFinishPlan,
@@ -76,6 +77,36 @@ describe("COLOR_LOOKS / lookVf", () => {
     expect(lookVf("warm")).toContain("eq=");
     expect(COLOR_LOOKS[0].id).toBe("none");
     expect(new Set(COLOR_LOOKS.map((l) => l.id)).size).toBe(COLOR_LOOKS.length);
+  });
+});
+
+describe("captionVf (burned-in hook)", () => {
+  it("returns empty for blank text", () => {
+    expect(captionVf("")).toBe("");
+    expect(captionVf("   ")).toBe("");
+  });
+  it("builds a centered drawtext at the chosen position", () => {
+    const bottom = captionVf("Join us today", "bottom");
+    expect(bottom).toContain("drawtext=text='Join us today'");
+    expect(bottom).toContain("x=(w-text_w)/2");
+    expect(bottom).toContain("y=h*0.86-text_h");
+    expect(captionVf("x", "top")).toContain("y=h*0.07");
+    expect(captionVf("x", "center")).toContain("y=(h-text_h)/2");
+  });
+  it("neutralises filter metacharacters (quote/colon/percent/backslash)", () => {
+    const vf = captionVf("It's 50%: a\\b");
+    expect(vf).toContain("It’s 50\\%\\: a\\\\b"); // ' → ’, % : \\ escaped
+    expect(vf).not.toMatch(/text='[^']*'[^']*'/); // no raw inner single-quote
+  });
+  it("appends after the scale in the video recipe (sized to output)", () => {
+    const cmd = ffmpegCommand(byId("tiktok"), "u", "out.mp4", "", captionVf("Hook"));
+    const vf = cmd.match(/-vf "([^"]+)"/)![1];
+    expect(vf.indexOf("scale=")).toBeLessThan(vf.indexOf("drawtext="));
+  });
+  it("composes grade (before scale) + caption (after scale)", () => {
+    const vf = ffmpegImageCommand(byId("square"), "u", "out.png", lookVf("warm"), captionVf("Hi")).match(/-vf "([^"]+)"/)![1];
+    expect(vf.indexOf("eq=")).toBeLessThan(vf.indexOf("scale="));
+    expect(vf.indexOf("scale=")).toBeLessThan(vf.indexOf("drawtext="));
   });
 });
 

@@ -56,9 +56,83 @@ export function lookVf(lookId: string | undefined): string {
   return COLOR_LOOKS.find((l) => l.id === lookId)?.vf ?? "";
 }
 
+/**
+ * CSS `filter` approximation of a COLOR_LOOK, for the $0 live preview only.
+ * The ffmpeg `vf` above is the source of truth and renders the real grade;
+ * this is an indicative match so the framing preview carries the look. Keep
+ * each case in sync with its COLOR_LOOKS entry.
+ */
+export function lookCss(lookId: string | undefined): string {
+  switch (lookId) {
+    case "teal-orange":
+      return "saturate(1.15) contrast(1.08) sepia(0.10) hue-rotate(-6deg)";
+    case "warm":
+      return "saturate(1.08) contrast(1.04) sepia(0.14) brightness(1.02)";
+    case "cool":
+      return "saturate(0.72) contrast(1.18) brightness(0.98) hue-rotate(8deg)";
+    case "vibrant":
+      return "saturate(1.25) contrast(1.08)";
+    case "bw":
+      return "grayscale(1) contrast(1.12)";
+    default:
+      return "none";
+  }
+}
+
+/**
+ * How a preset frames the source, for a $0 WYSIWYG preview that mirrors the
+ * ffmpeg crop/pad math exactly:
+ *  - crop  → frame at the target ratio, source `object-fit: cover`
+ *            (= scale force_original_aspect_ratio=increase, crop).
+ *  - pad   → frame at the target ratio, source `object-fit: contain` on black
+ *            (= scale force_original_aspect_ratio=decrease, pad=…:black).
+ *  - scope-letterbox → 16:9 black frame with a 2.35:1 cover-cropped picture
+ *            band centred in it (= crop=3840:1634, pad=…:2160:black).
+ */
+export interface PreviewFrame {
+  /** outer canvas aspect ratio, W / H */
+  frameRatio: number;
+  /** how the source sits inside the picture area */
+  fit: "cover" | "contain";
+  /** when letterboxed: inner picture aspect ratio (W/H); the rest is black bars */
+  bandRatio?: number;
+}
+
+export function previewFrame(preset: DeliveryPreset): PreviewFrame {
+  const frameRatio = preset.width / preset.height;
+  if (preset.id === "scope-letterbox") {
+    return { frameRatio, fit: "cover", bandRatio: 3840 / 1634 };
+  }
+  return { frameRatio, fit: preset.fit === "pad" ? "contain" : "cover" };
+}
+
+export type CaptionPos = "bottom" | "top" | "center";
+
+/**
+ * Burned-in caption (hook / CTA) via ffmpeg drawtext — $0, applied after the
+ * scale so the text is sized to the output frame. Uses the default font
+ * (fontconfig); if a build can't find one, append `:fontfile=/path/to.ttf`.
+ */
+export function captionVf(text: string, pos: CaptionPos = "bottom"): string {
+  const t = (text ?? "").trim();
+  if (!t) return "";
+  // Sidestep single-quote escaping by swapping in a typographic apostrophe, then
+  // escape the remaining drawtext metacharacters.
+  const safe = t
+    .replace(/'/g, "’")
+    .replace(/\\/g, "\\\\")
+    .replace(/:/g, "\\:")
+    .replace(/%/g, "\\%");
+  const y = pos === "top" ? "h*0.07" : pos === "center" ? "(h-text_h)/2" : "h*0.86-text_h";
+  return (
+    `drawtext=text='${safe}':fontcolor=white:fontsize=h/18:line_spacing=8` +
+    `:box=1:boxcolor=black@0.55:boxborderw=18:x=(w-text_w)/2:y=${y}`
+  );
+}
+
 /** Local, $0 packaging step. Assumes the source is already the quality master.
  *  `grade` is an optional COLOR_LOOK vf fragment, applied before the scale. */
-export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName: string, grade = ""): string {
+export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName: string, grade = "", caption = ""): string {
   const { width: w, height: h, fps } = preset;
   let vf: string;
   if (preset.id === "scope-letterbox") {
@@ -70,6 +144,7 @@ export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName
     vf = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fps=${fps}`;
   }
   if (grade) vf = `${grade},${vf}`;
+  if (caption) vf = `${vf},${caption}`;
   return [
     `ffmpeg -i "${sourceUrl}"`,
     `-vf "${vf}"`,
@@ -79,13 +154,14 @@ export function ffmpegCommand(preset: DeliveryPreset, sourceUrl: string, outName
   ].join(" \\\n  ");
 }
 
-export function ffmpegImageCommand(preset: DeliveryPreset, sourceUrl: string, outName: string, grade = ""): string {
+export function ffmpegImageCommand(preset: DeliveryPreset, sourceUrl: string, outName: string, grade = "", caption = ""): string {
   const { width: w, height: h } = preset;
   let vf =
     preset.fit === "pad"
       ? `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black`
       : `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
   if (grade) vf = `${grade},${vf}`;
+  if (caption) vf = `${vf},${caption}`;
   return `ffmpeg -i "${sourceUrl}" -vf "${vf}" -q:v 1 "${outName}"`;
 }
 
