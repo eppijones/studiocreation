@@ -15,7 +15,8 @@ adapter), review outputs, and only spend money when a draft has earned it.
  image, ideation or final, renders on GPT Image 2 at `quality=high`
  (the market's best for text, reference sheets, storyboard grids); Nano
  Banana Pro / Nano Banana 2 are the alternates. Video runs on top models
- too — Kling 3.0 Pro, Seedance 2.0, Veo 3.1 Fast — where the only iteration
+ too — **Seedance 2.0 is the default** (the strongest video model), with
+ Kling 3.0 Pro and Veo 3.1 Fast as alternates — where the only iteration
  lever is the Fast lane, never a lesser model. Budget guardrails let
  creatives chase quality without mental accounting; when the pool runs hot
  the app nudges "lock the shot, render the keeper once" (fewer iterations),
@@ -41,7 +42,7 @@ model. Current fal lineup (USD):
 |---|---|
 | Image | `openai/gpt-image-2` **(DEFAULT)** $0.16 at `quality=high` — the standard render for every image (4k $0.41; low/medium are off-spec overrides) · `fal-ai/nano-banana-pro` $0.15 (4k $0.30) · `fal-ai/nano-banana-2` $0.08 (4k $0.16) |
 | Image — edit / refs | `openai/gpt-image-2/edit` (≤10 ref images) |
-| Video | `veo-3.1-fast` $0.10/s (audio $0.15 — cheapest top option, good for fast iteration) · `kling-3.0-pro` $0.14/s (audio $0.21, +i2v) · `seedance-2.0` $0.3034/s (fast $0.2419, +i2v) |
+| Video | `seedance-2.0` **(DEFAULT)** $0.3034/s — the strongest video model; text / image / reference variants, Fast lane $0.2419, +audio · `kling-3.0-pro` $0.14/s (audio $0.21, +i2v) · `veo-3.1-fast` $0.10/s (audio $0.15 — cheapest, good for fast iteration) |
 | Video — consistency | `seedance-2.0/reference-to-video` $0.3024/s — 9 imgs + 3 vids + 3 audio, `@Image1` syntax, 1080p |
 | Finishing | `fal-ai/topaz/upscale/video` $0.08/s 4K (fps interpolation 16–60) · `topaz/upscale/image` $0.08 · `recraft/upscale/crisp` $0.004 |
 
