@@ -1,0 +1,233 @@
+/* Media Library (StudioLibrary) — footage archive surface. Shares the Portal
+   One design tokens; its own layout. Distinct from the Gallery (AI renders). */
+
+.wrap { display: flex; flex-direction: column; gap: 18px; padding: 22px 26px 60px; }
+
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.title { font-size: 13px; letter-spacing: 0.18em; color: var(--tx-3); font-weight: 600; text-transform: uppercase; }
+.count { font-size: 26px; font-weight: 700; color: var(--tx-1); letter-spacing: -0.01em; }
+.count small { font-size: 14px; font-weight: 500; color: var(--tx-3); margin-left: 8px; letter-spacing: 0; }
+
+.stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--line-2);
+  border-radius: 10px; background: var(--bg-2); }
+.statNum { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--tx-1); }
+.statLbl { font-size: 11px; color: var(--tx-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dotOk { background: var(--ok); } .dotWarn { background: var(--warn); }
+
+.body { display: grid; grid-template-columns: 232px 1fr; gap: 22px; align-items: start; }
+@media (max-width: 880px) { .body { grid-template-columns: 1fr; } }
+
+.rail { display: flex; flex-direction: column; gap: 18px; position: sticky; top: 14px; }
+.railHd { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tx-3); margin-bottom: 8px; font-weight: 600; }
+
+.tree { display: flex; flex-direction: column; gap: 1px; max-height: 340px; overflow-y: auto; }
+.treeItem { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 7px; cursor: pointer;
+  color: var(--tx-2); font-size: 13px; background: none; border: none; text-align: left; width: 100%; }
+.treeItem:hover { background: var(--bg-3); color: var(--tx-1); }
+.treeOn { background: var(--accent-wash); color: var(--accent-hi); }
+.treeItem .n { margin-left: auto; font-size: 11px; color: var(--tx-4); font-variant-numeric: tabular-nums; }
+
+.filterGroup { display: flex; flex-wrap: wrap; gap: 6px; }
+.kindBtn { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg-2);
+  color: var(--tx-2); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.kindBtn:hover { border-color: var(--line-3); color: var(--tx-1); }
+.kindOn { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.select { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line-2);
+  background: var(--bg-2); color: var(--tx-1); font-size: 13px; }
+
+.toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.search { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px; padding: 9px 13px;
+  border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--tx-1); }
+.search input { flex: 1; background: none; border: none; outline: none; color: var(--tx-1); font-size: 14px; }
+.search svg { color: var(--tx-3); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(214px, 1fr)); gap: 16px; }
+
+.card { border: 1px solid var(--line-2); border-radius: 13px; overflow: hidden; background: var(--bg-2);
+  cursor: pointer; transition: transform 0.12s ease, border-color 0.12s ease; display: flex; flex-direction: column; }
+.card:hover { transform: translateY(-2px); border-color: var(--accent-line); }
+.thumb { position: relative; aspect-ratio: 16/10; background: var(--bg-1); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumbIcon { color: var(--tx-4); }
+/* Audio: show the FULL waveform (no crop) on the dark surface. */
+.thumbAudio { background: var(--bg-1); }
+.thumbAudio img { object-fit: contain; padding: 6px 8px; }
+.dur { position: absolute; bottom: 8px; right: 8px; padding: 2px 7px; border-radius: 6px; font-size: 11px;
+  font-variant-numeric: tabular-nums; background: rgba(0,0,0,0.66); color: #fff; }
+.playPip { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; opacity: 0; transition: opacity 0.12s; }
+.card:hover .playPip { opacity: 0.9; }
+.meta { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fname { font-size: 13px; color: var(--tx-1); font-weight: 500; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.fpath { font-size: 11px; color: var(--tx-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.specs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 3px; font-size: 10.5px;
+  color: var(--tx-3); font-variant-numeric: tabular-nums; }
+.spec { padding: 1px 6px; border-radius: 5px; background: var(--bg-3); display: inline-flex; align-items: center; gap: 4px; }
+/* Kind chip — moved off the thumbnail into the meta row. */
+.kindChip { text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; color: var(--tx-2); }
+.kindChip svg { color: var(--tx-3); }
+/* Review-state chip rendered inline in the meta row (was a pill over the media). */
+.stateChipMeta { text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); }
+
+.empty { padding: 60px 20px; text-align: center; color: var(--tx-3); border: 1px dashed var(--line-2);
+  border-radius: 14px; background: var(--bg-2); }
+.empty code { color: var(--accent-hi); background: var(--bg-1); padding: 2px 7px; border-radius: 5px; font-size: 13px; }
+
+/* ── rail: review chips, ratings, collections, drop targets ─────────────── */
+.railHd { position: relative; }
+.railAdd { position: absolute; right: 0; top: -2px; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--bg-2);
+  color: var(--tx-3); cursor: pointer; }
+.railAdd:hover { color: var(--accent-hi); border-color: var(--accent-line); background: var(--accent-wash); }
+.railEmpty { font-size: 12px; color: var(--tx-4); padding: 4px 8px; }
+
+.stateChip { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg-2);
+  color: var(--tx-2); font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.stateChip:hover { color: var(--tx-1); }
+.stateChipOn { font-weight: 600; }
+.stateDotSm { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* Drop highlight shared by folder + collection rows. */
+.dropTarget { background: var(--accent-wash) !important; box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent-hi) !important; }
+
+/* ── toolbar new-folder / upload buttons ────────────────────────────────── */
+.toolBtn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: var(--bg-2); color: var(--tx-2); font-size: 13px; cursor: pointer;
+  white-space: nowrap; }
+.toolBtn:hover { color: var(--tx-1); border-color: var(--accent-line); background: var(--accent-wash); }
+.toolBtn:disabled { opacity: 0.55; cursor: default; color: var(--tx-3); border-color: var(--line-2);
+  background: var(--bg-2); }
+
+/* ── whole-page upload overlays (OS file-drop + uploading state) ─────────── */
+.dropOverlay, .uploadOverlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center;
+  justify-content: center; padding: 24px; }
+.dropOverlay { background: color-mix(in srgb, var(--bg-0) 72%, transparent); }
+.uploadOverlay { background: color-mix(in srgb, var(--bg-0) 60%, transparent); cursor: progress; }
+.dropOverlay .dropOverlayInner { border: 2px dashed var(--accent); background: var(--accent-wash); }
+.dropOverlayInner { display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 40px 56px; border-radius: 18px; border: 1px solid var(--line-3); background: var(--bg-3);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.5); color: var(--accent-hi); pointer-events: none; }
+.dropOverlayText { font-size: 15px; font-weight: 600; color: var(--tx-1); text-align: center; max-width: 380px; }
+
+/* ── card selection + draggable ─────────────────────────────────────────── */
+.card { -webkit-user-select: none; user-select: none; }
+.card:active { cursor: grabbing; }
+.cardSel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+.checkbox { position: absolute; top: 8px; right: 8px; left: auto; width: 22px; height: 22px; border-radius: 7px;
+  border: 1.5px solid rgba(255,255,255,0.7); background: rgba(0,0,0,0.45); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.12s;
+  backdrop-filter: blur(4px); z-index: 2; }
+.card:hover .checkbox { opacity: 1; }
+.checkboxOn { opacity: 1; background: var(--accent); border-color: var(--accent); }
+
+.stateDot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* ── review signals row ─────────────────────────────────────────────────── */
+.signals { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.stars { font-size: 11px; letter-spacing: 1px; line-height: 1; }
+.starOn { color: var(--warn-tx, #f5b73d); }
+.starOff { color: var(--line-3); }
+.commentBadge { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; color: var(--accent-hi);
+  background: var(--accent-wash); padding: 1px 6px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+
+/* ── bulk action bar (sticky bottom) ────────────────────────────────────── */
+.bulkBar { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: 16px; padding: 10px 14px; border-radius: 14px;
+  border: 1px solid var(--line-3); background: var(--bg-3); box-shadow: 0 14px 40px rgba(0,0,0,0.45);
+  max-width: calc(100vw - 40px); flex-wrap: wrap; }
+.bulkCount { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--tx-1);
+  white-space: nowrap; }
+.bulkClear { font-size: 12px; font-weight: 500; color: var(--accent-hi); background: none; border: none; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; }
+.bulkActions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.bulkMenuWrap { position: relative; }
+.bulkBtn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 11px; border-radius: 9px;
+  border: 1px solid var(--line-2); background: var(--bg-2); color: var(--tx-2); font-size: 12.5px; cursor: pointer;
+  white-space: nowrap; }
+.bulkBtn:hover { color: var(--tx-1); border-color: var(--line-3); }
+.bulkBtn:disabled { opacity: 0.45; cursor: default; color: var(--tx-3); border-color: var(--line-2); }
+.bulkDanger { color: var(--bad-tx); border-color: var(--line-2); }
+.bulkDanger:hover { background: var(--bad-wash); border-color: var(--bad-tx); }
+
+/* Pop-up menus shared by bulk bar + folder picker (open upward). */
+.popMenu { position: absolute; bottom: calc(100% + 6px); left: 0; min-width: 190px; max-height: 280px; overflow-y: auto;
+  background: var(--bg-3); border: 1px solid var(--line-3); border-radius: 11px; padding: 5px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5); z-index: 50; display: flex; flex-direction: column; gap: 1px; }
+.popItem { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-radius: 7px; border: none;
+  background: none; color: var(--tx-2); font-size: 13px; cursor: pointer; text-align: left; width: 100%; }
+.popItem:hover { background: var(--bg-4); color: var(--tx-1); }
+.popN { margin-left: auto; font-size: 11px; color: var(--tx-4); font-variant-numeric: tabular-nums; }
+
+/* ── right-click context menu ───────────────────────────────────────────── */
+.ctxMenu { position: fixed; z-index: 60; min-width: 210px; background: var(--bg-3); border: 1px solid var(--line-3);
+  border-radius: 11px; padding: 5px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 1px; }
+.ctxItem { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; border: none;
+  background: none; color: var(--tx-2); font-size: 13px; cursor: pointer; text-align: left; width: 100%; }
+.ctxItem:hover { background: var(--bg-4); color: var(--tx-1); }
+.ctxItem > :global(svg):last-child { margin-left: auto; }
+.ctxSub { position: relative; }
+.ctxFlyout { margin: 2px 0 2px 14px; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px;
+  border-left: 1px solid var(--line-2); padding-left: 4px; }
+.ctxDivider { height: 1px; background: var(--line-2); margin: 4px 2px; }
+.ctxDanger { color: var(--bad-tx); }
+.ctxDanger:hover { background: var(--bad-wash); color: var(--bad-tx); }
+
+/* ── transient confirmation toast ───────────────────────────────────────── */
+.toast { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 70;
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 11px;
+  background: var(--bg-4); border: 1px solid var(--ok-tx); color: var(--tx-1); font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45); max-width: calc(100vw - 40px); }
+.toast :global(svg) { color: var(--ok-tx); flex: none; }
+
+/* ═══ FILE EXPLORER (Finder-style browse) ════════════════════════════════ */
+
+/* Breadcrumb — clickable path segments above the tile grid. */
+.crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-bottom: 14px;
+  font-size: 13px; color: var(--tx-3); }
+.crumbSeg { display: inline-flex; align-items: center; gap: 2px; }
+.crumbSeg :global(svg) { color: var(--tx-4); flex: none; }
+.crumb { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 7px;
+  border: none; background: none; color: var(--tx-2); font-size: 13px; cursor: pointer; }
+.crumb:hover { background: var(--bg-3); color: var(--tx-1); }
+.crumbCur { color: var(--tx-1); font-weight: 600; }
+
+/* Search/filter mode hint — explains the flat results + a way back to browse. */
+.modeHint { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; padding: 8px 12px;
+  border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--tx-3); font-size: 13px; }
+.modeHint :global(svg) { color: var(--tx-3); flex: none; }
+.modeHint strong { color: var(--tx-1); font-weight: 600; }
+.modeHintClear { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
+  border-radius: 8px; border: 1px solid var(--line-2); background: var(--bg-3); color: var(--tx-2);
+  font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.modeHintClear:hover { color: var(--tx-1); border-color: var(--accent-line); background: var(--accent-wash); }
+
+/* Folder tiles — sit in the same grid as cards; click to enter, drop to move. */
+.folderTile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  aspect-ratio: 16/10; padding: 12px; border: 1px solid var(--line-2); border-radius: 13px;
+  background: var(--bg-2); color: var(--tx-1); cursor: pointer; text-align: center;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease; min-width: 0; width: 100%; }
+.folderTile:hover { transform: translateY(-2px); border-color: var(--accent-line); background: var(--bg-3); }
+.upTile { color: var(--tx-3); }
+.folderGlyph { color: var(--accent-hi); display: inline-flex; }
+.folderName { font-size: 13px; font-weight: 600; color: var(--tx-1); max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folderCount { font-size: 11px; color: var(--tx-4); font-variant-numeric: tabular-nums; }
+/* Drop-target highlight on a folder tile (and the up tile). */
+.tileDropOn { border-color: var(--accent) !important; background: var(--accent-wash) !important;
+  box-shadow: inset 0 0 0 1.5px var(--accent); }
+.tileDrop { color: var(--accent-hi); }
+
+/* Generic (un-indexed) file tile — a glyph + extension; no detail route. */
+.fileTile { border: 1px solid var(--line-2); border-radius: 13px; overflow: hidden; background: var(--bg-2);
+  display: flex; flex-direction: column; -webkit-user-select: none; user-select: none; }
+.fileGlyphWrap { color: var(--tx-4); }
+.extTag { position: absolute; bottom: 8px; right: 8px; padding: 2px 7px; border-radius: 6px; font-size: 10px;
+  font-weight: 700; letter-spacing: 0.05em; background: rgba(0,0,0,0.5); color: var(--tx-2);
+  backdrop-filter: blur(6px); }

@@ -1,0 +1,31 @@
+# StudioLibrary — local Media Library database (NOT deployed to Vercel).
+# Postgres + pgvector, isolated from the app's Neon DB. Survives the internet
+# being down; the index is disposable (wipe the volume → re-crawl → rebuild).
+#
+#   docker compose -f studiolibrary/docker-compose.yml up -d
+#
+# Connection (host):  postgresql://studio:studio@localhost:5433/studiolibrary
+# Put that in .env.local as DATABASE_URL_LIBRARY.
+services:
+  library-db:
+    image: pgvector/pgvector:pg16
+    container_name: studiolibrary-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: studio
+      POSTGRES_PASSWORD: studio
+      POSTGRES_DB: studiolibrary
+    ports:
+      # 5433 on the host so it never collides with a local app Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      - library-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studio -d studiolibrary"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  library-pgdata:
+    name: studiolibrary-pgdata

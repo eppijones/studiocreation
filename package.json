@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "library:migrate": "tsx studiolibrary/lib/db/migrate.ts",
+    "library:crawl": "tsx studiolibrary/worker/index.ts crawl",
+    "library:work": "tsx studiolibrary/worker/index.ts work",
+    "library:once": "tsx studiolibrary/worker/index.ts once",
+    "library:db:up": "docker compose -f studiolibrary/docker-compose.yml up -d",
+    "library:db:down": "docker compose -f studiolibrary/docker-compose.yml down"
   },
   "dependencies": {
     "@fal-ai/client": "^1.0.0",
@@ -16,16 +22,19 @@
     "@vercel/blob": "^2.4.0",
     "gray-matter": "^4.0.3",
     "next": "^15.0.0",
+    "pg": "^8.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9",
     "eslint-config-next": "^15",
+    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3"
   }

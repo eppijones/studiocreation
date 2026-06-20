@@ -4,6 +4,9 @@ import type { SVGProps } from "react";
 const PATHS: Record<string, string> = {
   dashboard: "M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 13h7v7H4z",
   create: "M12 5v14M5 12h14",
+  plus: "M12 5v14M5 12h14",
+  folder: "M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  folderUp: "M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 17v-4M10 15l2-2 2 2",
   queue: "M4 7h16M4 12h16M4 17h10",
   gallery: "M4 5h16v14H4zM4 14l4-4 5 5M14 12l2-2 4 4",
   costs: "M12 2v20M7 6h8a3 3 0 010 6H9a3 3 0 000 6h9",

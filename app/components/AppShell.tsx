@@ -17,7 +17,11 @@ type NavItem = { href: string; label: string; icon: string; badge?: "run" | "sco
 const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Home", icon: "dashboard" },
   { href: "/create", label: "Create", icon: "create" },
-  { href: "/gallery", label: "Media Library", icon: "image", badge: "score" },
+  // Renamed from "Media Library" → "Gallery": this is the AI-render viewer,
+  // bundled with Create as the "AI studio" pipeline (Neon data).
+  { href: "/gallery", label: "Gallery", icon: "image", badge: "score" },
+  // NEW — the footage archive (StudioLibrary). Separate data model + local DB.
+  { href: "/library", label: "Media Library", icon: "film" },
   { href: "/tools", label: "Production Tools", icon: "tools" },
   { href: "/brands", label: "Brands", icon: "spark" },
 ];
@@ -145,7 +149,9 @@ function OnboardingBanner() {
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isLogin = pathname === "/login";
+  // The external share viewer and the login wall render WITHOUT the studio rail
+  // (external reviewers have no operator/session — the page stands alone).
+  const isLogin = pathname === "/login" || pathname.startsWith("/library/share");
   // Remount the page on TOP-LEVEL route changes only. Sub-paths like
   // /gallery/<id> (the gallery deep-link) must NOT remount — Next 15 syncs
   // history.replaceState into usePathname(), so keying the page on the full

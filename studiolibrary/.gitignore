@@ -1,0 +1,10 @@
+# StudioLibrary local dev artifacts — never commit or deploy to Vercel
+test-media/
+proxies/
+.cache/
+*.db
+*.sqlite
+.env.local
+.venv/
+*.srt
+*.vtt

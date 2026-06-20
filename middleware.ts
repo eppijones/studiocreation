@@ -4,7 +4,12 @@ import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
 // /api/reconcile does its own auth (studio session OR Vercel cron secret).
 // /api/showcase is intentionally public — it powers the pre-auth login wall and
 // only exposes renders the studio curated with the `showcaser` tag.
-const PUBLIC_PATHS = ["/login", "/api/auth", "/api/showcase", "/api/webhooks/fal", "/api/reconcile"];
+// /library/share/* and /api/library/share-view/* are token-gated external
+// review links — the token IS the credential, so no studio session is required.
+const PUBLIC_PATHS = [
+  "/login", "/api/auth", "/api/showcase", "/api/webhooks/fal", "/api/reconcile",
+  "/library/share", "/api/library/share-view",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -557,6 +557,16 @@ export default function HomeLauncher() {
   const { assets: allAssets } = useAssets();
   const assets = useMemo(() => allAssets.filter((a) => a.status !== "hidden"), [allAssets]);
   const [cast, setCast] = useState<CastRole[]>([]);
+  // Footage from the NEW Media Library (local Postgres), merged into the home
+  // carousel alongside Gallery renders. Negative ids mark footage so each card
+  // routes to its correct detail view. Fails soft if the library DB is offline.
+  const [footage, setFootage] = useState<StudioAsset[]>([]);
+  useEffect(() => {
+    fetch("/api/library/feed")
+      .then((r) => (r.ok ? r.json() : { assets: [] }))
+      .then((d) => setFootage((d.assets as StudioAsset[]) ?? []))
+      .catch(() => {});
+  }, []);
 
   // Warm the two main destinations so the morph commits instantly.
   useEffect(() => {
@@ -577,11 +587,23 @@ export default function HomeLauncher() {
     () => [...assets].filter((a) => a.blob_url).sort((a, b) => b.id - a.id).slice(0, 9),
     [assets]
   );
-  const projects = useMemo(() => new Set(assets.map((a) => a.project)).size, [assets]);
+  // UNIFIED deck: Gallery renders + Media Library footage, most-recent first.
+  const deck = useMemo(
+    () =>
+      [...recent, ...footage]
+        .filter((a) => a.blob_url)
+        .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
+        .slice(0, 12),
+    [recent, footage]
+  );
 
   const goMode = useCallback((mode: "image" | "video") => navigate(`/create?mode=${mode}`), [navigate]);
   const goRole = useCallback((roleId: string) => navigate(`/create?role=${roleId}`), [navigate]);
-  const openAsset = useCallback((id: number) => navigate(`/gallery/${id}`), [navigate]);
+  // Negative id ⇒ Media Library footage → /library/<id>; otherwise a Gallery render.
+  const openAsset = useCallback(
+    (id: number) => navigate(id < 0 ? `/library/${-id}` : `/gallery/${id}`),
+    [navigate]
+  );
 
   return (
     <div className={styles.launch}>
@@ -685,20 +707,22 @@ export default function HomeLauncher() {
           )}
         </section>
 
-        {/* MEDIA LIBRARY — the cinematic coverflow */}
+        {/* RECENT MEDIA — unified cinematic coverflow: Gallery renders +
+            Media Library footage, newest first. Each card opens its own view. */}
         <section className={`${styles.panel} ${styles.libPanel}`}>
           <Link href="/gallery" className={styles.panelHd}>
             <span className={styles.panelEyebrow} style={{ color: "var(--accent-gold, #e3b341)" }}>
-              Media Library
+              Recent media
             </span>
             <span className={styles.panelMeta}>
-              {assets.length} files{projects ? ` · ${projects} project${projects === 1 ? "" : "s"}` : ""} · Open
+              {assets.length} render{assets.length === 1 ? "" : "s"}
+              {footage.length ? ` · ${footage.length} from the archive` : ""} · Open
               <Icon name="arrowRight" size={13} style={{ verticalAlign: "-2px", marginLeft: 4 }} />
             </span>
           </Link>
 
-          {recent.length > 0 ? (
-            <Coverflow items={recent} onOpen={openAsset} />
+          {deck.length > 0 ? (
+            <Coverflow items={deck} onOpen={openAsset} />
           ) : (
             <div className={styles.libEmpty}>
               <Icon name="gallery" size={28} />
