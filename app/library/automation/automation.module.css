@@ -1,7 +1,8 @@
 /* Automation rules — job-queue automation surface for the Media Library.
    Shares the Portal One design tokens with the sibling library page. */
 
-.wrap { display: flex; flex-direction: column; gap: 18px; padding: 22px 26px 60px; }
+.wrap { display: flex; flex-direction: column; gap: 18px; padding: 22px 26px 60px; min-height: 100%;
+  background: radial-gradient(140% 90% at 82% -12%, var(--bg-2), transparent 52%); }
 
 /* ── header ─────────────────────────────────────────────────────────────── */
 .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -9,7 +10,7 @@
   text-decoration: none; margin-bottom: 6px; }
 .back:hover { color: var(--accent-hi); }
 .backChevron { transform: rotate(180deg); }
-.title { font-size: 13px; letter-spacing: 0.18em; color: var(--tx-3); font-weight: 600; text-transform: uppercase; }
+.title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; color: var(--tx-4); font-weight: 700; text-transform: uppercase; }
 .count { font-size: 26px; font-weight: 700; color: var(--tx-1); letter-spacing: -0.01em; margin-top: 2px; }
 .count small { font-size: 14px; font-weight: 500; color: var(--tx-3); margin-left: 8px; letter-spacing: 0; }
 
@@ -32,9 +33,9 @@
 .list { display: flex; flex-direction: column; gap: 10px; }
 
 .row { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 16px;
-  padding: 15px 17px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-2);
-  transition: border-color 0.12s ease; }
-.row:hover { border-color: var(--line-3); }
+  padding: 15px 17px; border: 1px solid var(--line-1); border-radius: var(--r-md); background: var(--bg-2);
+  box-shadow: var(--el-1); transition: border-color 0.12s ease, transform 0.12s ease; }
+.row:hover { border-color: var(--line-3); transform: translateY(-1px); }
 .rowOff { opacity: 0.62; }
 .rowOff:hover { opacity: 0.78; }
 @media (max-width: 720px) {
@@ -112,7 +113,7 @@
 .panelBody { padding: 18px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
 
 .field { display: flex; flex-direction: column; gap: 8px; }
-.fieldLbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--tx-3); font-weight: 600;
+.fieldLbl { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--tx-4); font-weight: 700;
   display: flex; align-items: baseline; gap: 8px; }
 .fieldNote { font-size: 10.5px; text-transform: none; letter-spacing: 0; color: var(--tx-4); font-weight: 500; }
 

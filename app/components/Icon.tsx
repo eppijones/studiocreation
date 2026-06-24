@@ -61,6 +61,16 @@ const PATHS: Record<string, string> = {
   mHandheld: "M3 12c2-4 4 4 6 0s4-4 6 0 4 4 6 0", // wave = natural shake
   mLocked: "M8 5H5v3M16 5h3v3M8 19H5v-3M16 19h3v-3M11 12h2", // corner brackets = locked frame
   mCrash: "M4 8V4h4M4 4l4 4M20 8V4h-4M20 4l-4 4M4 16v4h4M4 20l4-4M20 16v4h-4M20 20l-4-4", // 4 inward arrows = crash zoom
+  // view-mode + library glyphs
+  grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  list: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+  columns: "M4 4h4v16H4zM10 4h4v16h-4zM16 4h4v16h-4z",
+  cloud: "M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.3A3.5 3.5 0 0 1 17 18z",
+  drive: "M4 5h16v14H4zM4 12h16M7.5 15.5h.01M7.5 8.5h.01",
+  filter: "M4 6h16M7 12h10M10 18h4",
+  sort: "M4 7h13M4 12h9M4 17h5",
+  upload: "M12 16V4M7 9l5-5 5 5M5 20h14",
+  star: "M12 3l2.7 6 6.3.5-4.8 4.1 1.5 6.1L12 16.8 6.3 19.8l1.5-6.1L3 9.5 9.3 9z",
 };
 
 const SOLID = new Set(["bolt", "play", "dot"]);
