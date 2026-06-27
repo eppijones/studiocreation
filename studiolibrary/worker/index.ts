@@ -11,11 +11,13 @@
 import { configuredVolumes, makeVolume } from "../lib/volumes/index";
 import type { Volume } from "../lib/volumes/types";
 import {
-  listVolumes, claimNext, finishJob, failJobRow, getAsset, enqueue, jobCounts, type JobRow,
+  listVolumes, claimNext, finishJob, failJobRow, getAsset, enqueue, jobCounts,
+  setAssetStatus, type JobRow,
 } from "../lib/repo";
 import { crawlVolume } from "../lib/crawler";
 import { processAsset } from "../lib/proxy";
 import { transcribeAsset } from "../lib/transcribe";
+import { embedAsset } from "../lib/embed";
 import { dueScheduledRules, runRuleManually } from "../lib/automation";
 import { encoder } from "../lib/encoders/index";
 import { QUEUE_CONCURRENCY, LIBRARY_ENCODER } from "../lib/config/index";
@@ -49,8 +51,8 @@ export async function runCrawl(): Promise<void> {
 }
 
 async function processOne(job: JobRow, vols: Map<number, Volume>): Promise<void> {
-  // index/tag/embed aren't implemented yet — mark done so they don't wedge.
-  if (job.type !== "proxy" && job.type !== "transcribe") {
+  // index/tag aren't implemented yet — mark done so they don't wedge.
+  if (job.type !== "proxy" && job.type !== "transcribe" && job.type !== "embed") {
     await finishJob(job.id);
     return;
   }
@@ -71,10 +73,23 @@ async function processOne(job: JobRow, vols: Map<number, Volume>): Promise<void>
       if (ok && (asset.kind === "audio" || (asset.kind === "video" && asset.audio_codec))) {
         await enqueue("transcribe", asset.id, {}, 200);
       }
+      // Chain frame embedding for visual assets without a transcript step
+      // (images, and videos with no audio track). Audio/voiced video embed
+      // after transcribe so the transcript is embedded too.
+      if (ok && (asset.kind === "image" || (asset.kind === "video" && !asset.audio_codec))) {
+        await enqueue("embed", asset.id, {}, 250);
+      }
       console.log(`   ${ok ? "✓" : "⚠"} proxy #${asset.id} ${asset.kind} ${asset.rel_path}${ok ? "" : " (no derivative)"}`);
-    } else {
+    } else if (job.type === "transcribe") {
       const ok = await transcribeAsset(asset, volume);
+      // Now that the transcript exists, embed frames + transcript chunks.
+      await enqueue("embed", asset.id, {}, 250);
       console.log(`   ✎ transcript #${asset.id} ${asset.rel_path}${ok ? "" : " (no speech detected)"}`);
+    } else {
+      // embed: CLIP frame + transcript vectors → pgvector (semantic search).
+      const n = await embedAsset(asset, volume);
+      await setAssetStatus(asset.id, "enriched");
+      console.log(`   ⊹ embed #${asset.id} ${asset.rel_path} (${n} vectors)`);
     }
     await finishJob(job.id);
   } catch (e) {

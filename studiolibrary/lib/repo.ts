@@ -4,6 +4,7 @@
  */
 import { sql, query } from "./db/client";
 import type { AssetKind } from "./config/index";
+import { fanOutEvent } from "./notify";
 
 export interface VolumeRow {
   id: number;
@@ -107,14 +108,20 @@ export async function deleteAssetRow(id: number): Promise<void> {
   await sql`DELETE FROM assets WHERE id = ${id}`;
 }
 
-/** Append to the per-asset activity history. */
+/** Append to the per-asset activity history, then fan out notifications. The
+ *  fan-out is internally guarded (never throws) so it can't break the write. */
 export async function addEvent(
-  assetId: number, actor: string | null, type: string, payload: Record<string, unknown> = {}
-): Promise<void> {
-  await sql`
-    INSERT INTO asset_events (asset_id, actor, type, payload)
-    VALUES (${assetId}, ${actor}, ${type}, ${JSON.stringify(payload)})
+  assetId: number, actor: string | null, type: string,
+  payload: Record<string, unknown> = {}, actorId: number | null = null
+): Promise<number> {
+  const r = await sql<{ id: number }>`
+    INSERT INTO asset_events (asset_id, actor, actor_id, type, payload)
+    VALUES (${assetId}, ${actor}, ${actorId}, ${type}, ${JSON.stringify(payload)})
+    RETURNING id
   `;
+  const id = r[0].id;
+  await fanOutEvent({ id, assetId, actorId, actorName: actor, type, payload });
+  return id;
 }
 
 // ── Assets: idempotent discovery upsert with move-by-signature ──────────────

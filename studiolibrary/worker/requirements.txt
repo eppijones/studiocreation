@@ -1,0 +1,12 @@
+# Python deps for the StudioLibrary worker scripts (install into studiolibrary/.venv).
+#   python -m venv studiolibrary/.venv
+#   studiolibrary/.venv/bin/pip install -r studiolibrary/worker/requirements.txt
+#
+# transcribe.py — local Whisper (offline, CPU/int8 on Mac, cuda on the A6000):
+faster-whisper>=1.0.0
+#
+# embed.py — semantic search embeddings (open_clip joint image/text space, 512-dim).
+# On the A6000 install the CUDA torch build instead of the default CPU wheel.
+torch>=2.1.0
+open_clip_torch>=2.24.0
+pillow>=10.0.0

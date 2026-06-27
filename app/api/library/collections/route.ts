@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
-  listCollections, createCollection, deleteCollection, renameCollection,
+  listCollections, createCollection, createSmartCollection, deleteCollection, renameCollection,
   addToCollection, removeFromCollection, reorderCollection,
 } from "@/studiolibrary/lib/collections";
 
@@ -21,6 +21,10 @@ export async function POST(req: Request) {
       case "create": {
         const c = await createCollection(String(b.name || "Untitled"), by, b.description);
         if (Array.isArray(b.assetIds) && b.assetIds.length) await addToCollection(c.id, b.assetIds.map(Number));
+        return NextResponse.json({ collection: c });
+      }
+      case "createSmart": {
+        const c = await createSmartCollection(String(b.name || "Smart set"), by, b.query ?? {}, b.description);
         return NextResponse.json({ collection: c });
       }
       case "add":

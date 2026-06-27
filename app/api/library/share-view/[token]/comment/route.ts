@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { peekShareToken, shareAssetIds } from "@/studiolibrary/lib/collections";
 import { addAnnotation } from "@/studiolibrary/lib/review";
+import { addEvent } from "@/studiolibrary/lib/repo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,5 +26,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     assetId, kind: "comment", author: `${name} (guest)`,
     body: String(b.body ?? "").slice(0, 4000), tcIn: b.tcIn ?? null,
   });
+
+  // Notify the share's creator that an external reviewer commented.
+  const owner = link as { created_by_id?: number | null; created_by?: string | null };
+  if (owner.created_by_id || owner.created_by) {
+    await addEvent(assetId, name, "share_comment", {
+      created_by_id: owner.created_by_id ?? null, created_by: owner.created_by ?? null,
+      author: name, body: String(b.body ?? "").slice(0, 200),
+    });
+  }
   return NextResponse.json({ annotation: a });
 }

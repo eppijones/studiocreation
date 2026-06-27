@@ -129,6 +129,8 @@ function ShowcaseWall({ items }: { items: ShowcaseItem[] }) {
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState<"user" | "shared">("shared");
   const [operator, setOperator] = useState(OPERATORS[0]);
   const [customOperator, setCustomOperator] = useState("");
   const [role, setRole] = useState("creative");
@@ -138,6 +140,14 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const router = useRouter();
+
+  // Which auth mode is the server in? (per-user email/password vs shared password)
+  useEffect(() => {
+    fetch("/api/auth")
+      .then((r) => r.json())
+      .then((d) => { if (d.mode === "user" || d.mode === "shared") setMode(d.mode); })
+      .catch(() => {});
+  }, []);
 
   // Pull the curated showcaser wall — public, best-effort, never blocks login.
   useEffect(() => {
@@ -152,9 +162,13 @@ export default function LoginPage() {
     try {
       const raw = localStorage.getItem(REMEMBER_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { operator?: string; role?: string; remember?: boolean };
+      const saved = JSON.parse(raw) as { operator?: string; role?: string; email?: string; remember?: boolean };
       if (!saved.remember) return;
       setRemember(true);
+      if (saved.email) {
+        setEmail(saved.email);
+        setReturning(saved.email);
+      }
       if (saved.operator) {
         if (OPERATORS.includes(saved.operator)) setOperator(saved.operator);
         else {
@@ -177,17 +191,23 @@ export default function LoginPage() {
     setError(null);
     try {
       const name = (operator === "custom" ? customOperator : operator).trim() || "unknown";
+      const payload = mode === "user"
+        ? { email: email.trim(), password }
+        : { password, operator: name, role };
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, operator: name, role }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "Login failed");
       }
       try {
-        if (remember) localStorage.setItem(REMEMBER_KEY, JSON.stringify({ operator: name, role, remember: true }));
+        const remembered = mode === "user"
+          ? { email: email.trim(), remember: true }
+          : { operator: name, role, remember: true };
+        if (remember) localStorage.setItem(REMEMBER_KEY, JSON.stringify(remembered));
         else localStorage.removeItem(REMEMBER_KEY);
       } catch {
         /* storage blocked — session cookie still persists for a year */
@@ -251,41 +271,62 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* operator */}
-            <div className="col gap2">
-              <span className="field-label">Who&apos;s at the desk?</span>
-              <div className="row gap2 wrap">
-                {OPERATORS.map((name) => (
-                  <Chip key={name} on={operator === name} onClick={() => setOperator(name)}>
-                    {name}
-                  </Chip>
-                ))}
-                <Chip on={operator === "custom"} onClick={() => setOperator("custom")}>
-                  Other…
-                </Chip>
-              </div>
-              {operator === "custom" && (
+            {/* identity — email (per-user) or operator + role (shared password) */}
+            {mode === "user" ? (
+              <div className="col gap2">
+                <span className="field-label">
+                  <Icon name="spark" size={12} /> Work email
+                </span>
                 <input
                   className="input"
-                  placeholder="Your name"
-                  value={customOperator}
-                  onChange={(e) => setCustomOperator(e.target.value)}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="username"
+                  placeholder="you@studio.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   autoFocus
                 />
-              )}
-            </div>
+              </div>
+            ) : (
+              <>
+                {/* operator */}
+                <div className="col gap2">
+                  <span className="field-label">Who&apos;s at the desk?</span>
+                  <div className="row gap2 wrap">
+                    {OPERATORS.map((name) => (
+                      <Chip key={name} on={operator === name} onClick={() => setOperator(name)}>
+                        {name}
+                      </Chip>
+                    ))}
+                    <Chip on={operator === "custom"} onClick={() => setOperator("custom")}>
+                      Other…
+                    </Chip>
+                  </div>
+                  {operator === "custom" && (
+                    <input
+                      className="input"
+                      placeholder="Your name"
+                      value={customOperator}
+                      onChange={(e) => setCustomOperator(e.target.value)}
+                      autoFocus
+                    />
+                  )}
+                </div>
 
-            {/* role */}
-            <div className="col gap2">
-              <span className="field-label">Role for this session</span>
-              <Seg options={ROLES} value={role} onChange={setRole} />
-              <p className="t-xs muted" style={{ margin: 0 }}>{ROLE_DESC[role]}</p>
-            </div>
+                {/* role */}
+                <div className="col gap2">
+                  <span className="field-label">Role for this session</span>
+                  <Seg options={ROLES} value={role} onChange={setRole} />
+                  <p className="t-xs muted" style={{ margin: 0 }}>{ROLE_DESC[role]}</p>
+                </div>
+              </>
+            )}
 
             {/* password */}
             <div className="col gap2">
               <span className="field-label">
-                <Icon name="lock" size={12} /> Studio password
+                <Icon name="lock" size={12} /> {mode === "user" ? "Password" : "Studio password"}
               </span>
               <div className="auth-pw">
                 <input
@@ -294,7 +335,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoFocus={operator !== "custom"}
+                  autoFocus={mode === "shared" && operator !== "custom"}
                 />
                 <button
                   type="button"
@@ -324,13 +365,15 @@ export default function LoginPage() {
               size="lg"
               type="submit"
               style={{ width: "100%" }}
-              disabled={busy || !password}
+              disabled={busy || !password || (mode === "user" && !email.trim())}
             >
               {busy ? "Checking…" : "Enter the studio"}
             </Btn>
 
             <p className="t-xs muted" style={{ margin: 0, textAlign: "center" }}>
-              Every job is logged under your operator name.
+              {mode === "user"
+                ? "Every action is logged under your account."
+                : "Every job is logged under your operator name."}
             </p>
 
             {error && <p className="err" style={{ margin: 0, textAlign: "center" }}>⚠️ {error}</p>}

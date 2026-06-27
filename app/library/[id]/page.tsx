@@ -12,6 +12,7 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "../../components/Icon";
+import PresenceBar from "../_components/PresenceBar";
 import styles from "./detail.module.css";
 
 /* ── data shapes (mirror studiolibrary/lib server types) ──────────────── */
@@ -141,9 +142,12 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         <Icon name="chevronRight" size={14} style={{ transform: "rotate(180deg)" }} /> Media Library
       </button>
 
-      <div>
-        <div className={styles.title}>{a.filename}</div>
-        <div className={styles.path}>{a.rel_path}</div>
+      <div className={styles.titleRow}>
+        <div>
+          <div className={styles.title}>{a.filename}</div>
+          <div className={styles.path}>{a.rel_path}</div>
+        </div>
+        <PresenceBar assetId={assetId} />
       </div>
 
       <div className={styles.layout}>
@@ -236,11 +240,18 @@ function ReviewControls({
 }: {
   assetId: number; asset: Detail["asset"]; states: ReviewState[]; onChange: () => void;
 }) {
+  const [err, setErr] = useState<string | null>(null);
   const post = async (body: Record<string, unknown>) => {
-    await fetch("/api/library/review", {
+    setErr(null);
+    const r = await fetch("/api/library/review", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assetId, ...body }),
     });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setErr(d.error ?? "Action failed");
+      return;
+    }
     onChange();
   };
   const rating = asset.rating ?? 0;
@@ -249,6 +260,11 @@ function ReviewControls({
     <div className={styles.panel}>
       <div className={styles.panelHd}>Review</div>
       <div className={styles.reviewBody}>
+        {err && (
+          <div className={styles.gateErr}>
+            <Icon name="alert" size={13} /> {err}
+          </div>
+        )}
         <div className={styles.statePills}>
           {states.map((s) => {
             const on = asset.review_state === s.key;
@@ -280,7 +296,52 @@ function ReviewControls({
           ))}
           {rating > 0 && <span className={styles.starClear}>{rating}/5</span>}
         </div>
+
+        <AssignControl assetId={assetId} onChange={onChange} />
       </div>
+    </div>
+  );
+}
+
+/* ── assign this asset to a teammate (creates an assignment task) ───── */
+interface Member { id: number; name: string; handle: string; role: string }
+function AssignControl({ assetId, onChange }: { assetId: number; onChange: () => void }) {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [pick, setPick] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/users").then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((d) => setMembers(Array.isArray(d.users) ? d.users : [])).catch(() => {});
+  }, []);
+
+  async function assign() {
+    const m = members.find((x) => String(x.id) === pick);
+    if (!m) return;
+    setBusy(true);
+    try {
+      await fetch("/api/library/annotations", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId, kind: "comment", body: `Review requested → @${m.handle}`, assignedTo: m.name, assignedToId: m.id }),
+      });
+      setDone(m.name); setPick("");
+      onChange();
+    } finally { setBusy(false); }
+  }
+
+  if (members.length === 0) return null;
+  return (
+    <div className={styles.assignRow}>
+      <Icon name="wand" size={13} />
+      <select className={styles.assignSelect} value={pick} onChange={(e) => { setPick(e.target.value); setDone(null); }}>
+        <option value="">Assign to…</option>
+        {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+      </select>
+      <button className={styles.assignBtn} disabled={!pick || busy} onClick={assign}>
+        {busy ? "…" : "Assign"}
+      </button>
+      {done && <span className={styles.assignDone}>Assigned to {done}</span>}
     </div>
   );
 }

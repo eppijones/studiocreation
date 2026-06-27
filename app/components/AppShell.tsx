@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 import { FuelGauge, ToastProvider, CountUp, useToast } from "./ui";
 import { getSkin, toggleSkin, usd, isInFlight, type Skin, type ClientJob } from "./studio";
 import { osNotify, chime } from "./notify";
+import NotificationBell from "./NotificationBell";
 import type { BudgetView } from "./BudgetBanner";
 
 type NavItem = { href: string; label: string; icon: string; badge?: "run" | "score" };
@@ -22,12 +23,15 @@ const PRIMARY_NAV: NavItem[] = [
   { href: "/gallery", label: "Gallery", icon: "image", badge: "score" },
   // NEW — the footage archive (StudioLibrary). Separate data model + local DB.
   { href: "/library", label: "Media Library", icon: "film" },
+  // NEW — per-person worklist (assets with open tasks assigned to you).
+  { href: "/worklist", label: "My Work", icon: "check" },
   { href: "/tools", label: "Production Tools", icon: "tools" },
   { href: "/brands", label: "Brands", icon: "spark" },
 ];
 const DEEPER_NAV: NavItem[] = [
   { href: "/queue", label: "Generations", icon: "queue", badge: "run" },
   { href: "/roles", label: "Roles", icon: "wand" },
+  { href: "/members", label: "Team", icon: "shield" },
   { href: "/costs", label: "Costs", icon: "costs" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
@@ -327,6 +331,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <div className="op-name">{operator}</div>
                   <div className="op-role">{role || "operator"}</div>
                 </div>
+                <NotificationBell />
                 <button
                   className="theme-toggle"
                   title="Toggle light / dark skin"

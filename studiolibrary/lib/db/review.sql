@@ -35,6 +35,15 @@ INSERT INTO review_states (key, label, color, ord, kind) VALUES
   ('delivered',         'Delivered',          '#b98cff', 5, 'terminal')
 ON CONFLICT (key) DO NOTHING;
 
+-- ── User mirror (Phase 0) — read-through projection of Neon's canonical users.
+--    id mirrors the Neon users.id; library code joins/links against it. The
+--    library never writes back; studiolibrary/lib/users-mirror.ts upserts here.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS handle     TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email      TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS active     BOOLEAN NOT NULL DEFAULT TRUE;
+CREATE INDEX IF NOT EXISTS users_handle_idx ON users (handle);
+
 -- ── Annotations: comments + markers, timecode-anchored, threaded ────────────
 -- One table backs both the Comments and Markers surfaces (kind discriminates).
 CREATE TABLE IF NOT EXISTS annotations (
@@ -54,6 +63,12 @@ CREATE TABLE IF NOT EXISTS annotations (
 CREATE INDEX IF NOT EXISTS annotations_asset_idx  ON annotations (asset_id);
 CREATE INDEX IF NOT EXISTS annotations_assigned_idx ON annotations (assigned_to) WHERE resolved = FALSE;
 
+-- Phase 0 identity linkage: real user ids alongside the denormalized name
+-- strings (author / assigned_to). Names stay as a display cache (dual-write).
+ALTER TABLE annotations ADD COLUMN IF NOT EXISTS author_id      INTEGER;
+ALTER TABLE annotations ADD COLUMN IF NOT EXISTS assigned_to_id INTEGER;
+CREATE INDEX IF NOT EXISTS annotations_assigned_id_idx ON annotations (assigned_to_id) WHERE resolved = FALSE;
+
 -- ── Activity / history feed (append-only) ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS asset_events (
   id         SERIAL PRIMARY KEY,
@@ -64,6 +79,7 @@ CREATE TABLE IF NOT EXISTS asset_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS asset_events_asset_idx ON asset_events (asset_id, created_at DESC);
+ALTER TABLE asset_events ADD COLUMN IF NOT EXISTS actor_id INTEGER;
 
 -- ── Custom metadata field definitions (values live in assets.custom jsonb) ──
 CREATE TABLE IF NOT EXISTS custom_fields (
@@ -93,6 +109,10 @@ CREATE TABLE IF NOT EXISTS subclips (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS subclips_asset_idx ON subclips (asset_id);
+ALTER TABLE subclips ADD COLUMN IF NOT EXISTS created_by_id INTEGER;
+
+-- Phase 2: who signed off on the asset's current review state (real user id).
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS reviewed_by_id INTEGER;
 
 -- ── Collections (bundles) — extend the existing tables for drag-drop order ──
 ALTER TABLE collections ADD COLUMN IF NOT EXISTS description TEXT;
@@ -119,6 +139,7 @@ CREATE TABLE IF NOT EXISTS share_links (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS share_links_target_idx ON share_links (target_type, target_id);
+ALTER TABLE share_links ADD COLUMN IF NOT EXISTS created_by_id INTEGER;
 
 -- ── Automation rules (trigger → conditions → steps over the job queue) ──────
 CREATE TABLE IF NOT EXISTS automation_rules (

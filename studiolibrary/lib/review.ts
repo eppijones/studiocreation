@@ -12,13 +12,25 @@ export async function listReviewStates(): Promise<ReviewState[]> {
   return sql<ReviewState>`SELECT * FROM review_states ORDER BY ord`;
 }
 
-export async function setReviewState(assetId: number, state: string, actor: string | null): Promise<void> {
-  const prev = await sql<{ review_state: string }>`SELECT review_state FROM assets WHERE id = ${assetId}`;
+/** States that satisfy the "internally approved" precondition for client sign-off. */
+const INTERNAL_APPROVED = new Set(["approved_internal", "approved_client", "delivered"]);
+
+export async function setReviewState(
+  assetId: number, state: string, actor: string | null, actorId: number | null = null
+): Promise<void> {
+  const prevRows = await sql<{ review_state: string }>`SELECT review_state FROM assets WHERE id = ${assetId}`;
+  const prev = prevRows[0]?.review_state ?? null;
+
+  // Multi-stage sign-off gate: client approval requires prior internal approval.
+  if (state === "approved_client" && !INTERNAL_APPROVED.has(prev ?? "")) {
+    throw new Error("Client approval requires internal approval first");
+  }
+
   await sql`
-    UPDATE assets SET review_state = ${state}, reviewed_by = ${actor}, reviewed_at = now()
+    UPDATE assets SET review_state = ${state}, reviewed_by = ${actor}, reviewed_by_id = ${actorId}, reviewed_at = now()
     WHERE id = ${assetId}
   `;
-  await addEvent(assetId, actor, "state_change", { from: prev[0]?.review_state ?? null, to: state });
+  await addEvent(assetId, actor, "state_change", { from: prev, to: state }, actorId);
 }
 
 export async function setRating(assetId: number, rating: number | null, actor: string | null): Promise<void> {
@@ -63,9 +75,10 @@ export async function setCustomField(assetId: number, key: string, value: unknow
 
 // ── Annotations: comments + markers ─────────────────────────────────────────
 export interface Annotation {
-  id: number; asset_id: number; kind: "comment" | "marker"; author: string | null;
+  id: number; asset_id: number; kind: "comment" | "marker"; author: string | null; author_id: number | null;
   body: string | null; tc_in: number | null; tc_out: number | null; color: string | null;
-  resolved: boolean; assigned_to: string | null; parent_id: number | null; created_at: string;
+  resolved: boolean; assigned_to: string | null; assigned_to_id: number | null;
+  parent_id: number | null; created_at: string;
 }
 export async function listAnnotations(assetId: number): Promise<Annotation[]> {
   return sql<Annotation>`
@@ -73,21 +86,29 @@ export async function listAnnotations(assetId: number): Promise<Annotation[]> {
     ORDER BY coalesce(tc_in, -1), created_at`;
 }
 export async function addAnnotation(a: {
-  assetId: number; kind?: "comment" | "marker"; author: string | null; body?: string;
+  assetId: number; kind?: "comment" | "marker"; author: string | null; authorId?: number | null; body?: string;
   tcIn?: number | null; tcOut?: number | null; color?: string | null;
-  assignedTo?: string | null; parentId?: number | null;
+  assignedTo?: string | null; assignedToId?: number | null; parentId?: number | null;
 }): Promise<Annotation> {
   const r = await sql<Annotation>`
-    INSERT INTO annotations (asset_id, kind, author, body, tc_in, tc_out, color, assigned_to, parent_id)
-    VALUES (${a.assetId}, ${a.kind ?? "comment"}, ${a.author}, ${a.body ?? null},
-            ${a.tcIn ?? null}, ${a.tcOut ?? null}, ${a.color ?? null}, ${a.assignedTo ?? null}, ${a.parentId ?? null})
+    INSERT INTO annotations (asset_id, kind, author, author_id, body, tc_in, tc_out, color, assigned_to, assigned_to_id, parent_id)
+    VALUES (${a.assetId}, ${a.kind ?? "comment"}, ${a.author}, ${a.authorId ?? null}, ${a.body ?? null},
+            ${a.tcIn ?? null}, ${a.tcOut ?? null}, ${a.color ?? null}, ${a.assignedTo ?? null}, ${a.assignedToId ?? null}, ${a.parentId ?? null})
     RETURNING *`;
   await addEvent(a.assetId, a.author, a.kind === "marker" ? "marker" : "comment",
-    { body: (a.body ?? "").slice(0, 120), tc_in: a.tcIn ?? null });
+    { body: (a.body ?? "").slice(0, 120), tc_in: a.tcIn ?? null }, a.authorId ?? null);
+  // Assigned at creation → also fire the assignment notification.
+  if (a.assignedTo || a.assignedToId) {
+    await addEvent(a.assetId, a.author, "assignment",
+      { assigned_to: a.assignedTo ?? null, assigned_to_id: a.assignedToId ?? null }, a.authorId ?? null);
+  }
   return r[0];
 }
 export async function updateAnnotation(
-  id: number, fields: { body?: string; tcIn?: number | null; tcOut?: number | null; resolved?: boolean; assignedTo?: string | null }
+  id: number,
+  fields: { body?: string; tcIn?: number | null; tcOut?: number | null; resolved?: boolean;
+            assignedTo?: string | null; assignedToId?: number | null },
+  actor?: { name: string | null; id: number | null }
 ): Promise<void> {
   const sets: string[] = [];
   const vals: unknown[] = [];
@@ -97,9 +118,19 @@ export async function updateAnnotation(
   if (fields.tcOut !== undefined) add("tc_out", fields.tcOut);
   if (fields.resolved !== undefined) add("resolved", fields.resolved);
   if (fields.assignedTo !== undefined) add("assigned_to", fields.assignedTo);
+  if (fields.assignedToId !== undefined) add("assigned_to_id", fields.assignedToId);
   if (!sets.length) return;
   vals.push(id);
   await query(`UPDATE annotations SET ${sets.join(", ")} WHERE id = $${vals.length}`, vals);
+
+  // Newly assigned to someone → notify the assignee (fan-out off the event).
+  if ((fields.assignedTo || fields.assignedToId)) {
+    const row = await sql<{ asset_id: number }>`SELECT asset_id FROM annotations WHERE id = ${id}`;
+    if (row[0]) {
+      await addEvent(row[0].asset_id, actor?.name ?? null, "assignment",
+        { assigned_to: fields.assignedTo ?? null, assigned_to_id: fields.assignedToId ?? null }, actor?.id ?? null);
+    }
+  }
 }
 export async function deleteAnnotation(id: number): Promise<void> {
   await sql`DELETE FROM annotations WHERE id = ${id}`;

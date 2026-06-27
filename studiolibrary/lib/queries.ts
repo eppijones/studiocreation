@@ -59,6 +59,77 @@ export async function searchAssets(f: AssetFilters): Promise<AssetRow[]> {
   );
 }
 
+// ── Phase 2: review workflow at scale ───────────────────────────────────────
+export interface WorklistItem extends AssetRow {
+  open_tasks: number;
+  last_assigned_at: string | null;
+}
+
+/** Assets with open (unresolved) annotations assigned to a user — "My Work". */
+export async function worklistFor(userId: number, limit = 200): Promise<WorklistItem[]> {
+  return query<WorklistItem>(
+    `SELECT a.*,
+            count(an.id)::int                 AS open_tasks,
+            max(an.created_at)                AS last_assigned_at
+     FROM assets a
+     JOIN annotations an ON an.asset_id = a.id
+     WHERE a.missing_at IS NULL AND an.assigned_to_id = $1 AND an.resolved = false
+     GROUP BY a.id
+     ORDER BY max(an.created_at) DESC
+     LIMIT $2`,
+    [userId, limit]
+  );
+}
+
+/** Count of assets with open tasks assigned to a user (for the nav badge). */
+export async function worklistCount(userId: number): Promise<number> {
+  const r = await query<{ n: string }>(
+    `SELECT count(DISTINCT an.asset_id) n FROM annotations an
+     JOIN assets a ON a.id = an.asset_id AND a.missing_at IS NULL
+     WHERE an.assigned_to_id = $1 AND an.resolved = false`,
+    [userId]
+  );
+  return Number(r[0]?.n ?? 0);
+}
+
+/** Per-person review throughput over the last `days` (state changes + comments). */
+export async function reviewVelocity(days = 7): Promise<{ actor: string; state_changes: number; comments: number }[]> {
+  return query<{ actor: string; state_changes: number; comments: number }>(
+    `SELECT coalesce(actor,'—') AS actor,
+            count(*) FILTER (WHERE type = 'state_change')::int AS state_changes,
+            count(*) FILTER (WHERE type = 'comment')::int      AS comments
+     FROM asset_events
+     WHERE created_at > now() - ($1 * interval '1 day') AND actor IS NOT NULL
+     GROUP BY actor
+     ORDER BY count(*) DESC
+     LIMIT 20`,
+    [days]
+  );
+}
+
+export interface AuditRow {
+  id: number; created_at: string; actor: string | null; actor_id: number | null;
+  type: string; asset_id: number; filename: string | null; rel_path: string | null;
+  payload: Record<string, unknown>;
+}
+
+/** Time-ranged activity log across all assets — compliance / per-person reports. */
+export async function auditLog(opts?: { days?: number; actor?: string; type?: string; limit?: number }): Promise<AuditRow[]> {
+  const params: unknown[] = [opts?.days ?? 30];
+  const clauses = ["e.created_at > now() - ($1 * interval '1 day')"];
+  if (opts?.actor) { params.push(opts.actor); clauses.push(`e.actor = $${params.length}`); }
+  if (opts?.type) { params.push(opts.type); clauses.push(`e.type = $${params.length}`); }
+  const limit = Math.min(opts?.limit ?? 1000, 10000);
+  return query<AuditRow>(
+    `SELECT e.id, e.created_at, e.actor, e.actor_id, e.type, e.asset_id,
+            a.filename, a.rel_path, e.payload
+     FROM asset_events e LEFT JOIN assets a ON a.id = e.asset_id
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY e.created_at DESC LIMIT ${limit}`,
+    params
+  );
+}
+
 /** Leaf folders (dir of each rel_path) with asset counts — builds the tree. */
 export async function folderCounts(): Promise<{ folder: string; n: number }[]> {
   const r = await sql<{ folder: string; n: string }>`

@@ -13,8 +13,9 @@ import { VOLUMES } from "../config/index";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export async function migrate(): Promise<void> {
-  // Apply base schema, then the review/management migration. Both idempotent.
-  for (const file of ["schema.sql", "review.sql"]) {
+  // Apply base schema, the review/management migration, the collaboration layer
+  // (notifications + presence), then the semantic-search index. All idempotent.
+  for (const file of ["schema.sql", "review.sql", "notifications.sql", "embeddings.sql"]) {
     await pool.query(readFileSync(join(__dirname, file), "utf8"));
     console.log(`✅ applied ${file}`);
   }

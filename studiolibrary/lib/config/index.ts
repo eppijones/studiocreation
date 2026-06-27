@@ -86,6 +86,7 @@ export const PROXY_PRESETS = {
 export const QUEUE_CONCURRENCY = {
   proxy: Number(process.env.LIBRARY_PROXY_CONCURRENCY ?? 2),
   transcribe: Number(process.env.LIBRARY_TRANSCRIBE_CONCURRENCY ?? 1),
+  embed: Number(process.env.LIBRARY_EMBED_CONCURRENCY ?? 1),
   default: 4,
 } as const;
 
@@ -98,9 +99,12 @@ export const SHARE_POLICY = {
 /** AI model choices — local-first; API fallback OFF by default (offline-safe). */
 export const AI_MODELS = {
   transcribe: { engine: "faster-whisper", model: "base", apiFallback: false },
-  // Phase 2 — vision tags + embeddings (local model; API fallback off):
-  embed: { engine: "local", dim: 768, apiFallback: false },
+  // Semantic search — open_clip ViT-B-32 gives a joint 512-dim image↔text space,
+  // so frame embeddings and text queries live in ONE column / ANN index.
+  embed: { engine: "open_clip", model: "ViT-B-32", dim: 512, apiFallback: false },
 } as const;
+/** Embedding vector dimension — pinned (the HNSW index commits to it). */
+export const EMBED_DIM = AI_MODELS.embed.dim;
 
 /** Local Whisper (faster-whisper) — CPU/int8 on the Mac, "cuda" on the A6000.
  *  Runs in its own Python venv so it never touches the Node toolchain. */
@@ -109,6 +113,16 @@ export const WHISPER = {
   script: `${REPO_ROOT}/studiolibrary/worker/transcribe.py`,
   model: process.env.WHISPER_MODEL ?? AI_MODELS.transcribe.model,
   device: process.env.WHISPER_DEVICE ?? "cpu", // flip to "cuda" in Oslo
+} as const;
+
+/** Local CLIP embedder — shares the Whisper venv (open_clip + torch). Mirrors
+ *  the WHISPER spawn contract: one JSON line on stdout. "cuda" in Oslo. */
+export const EMBED = {
+  python: process.env.EMBED_PYTHON ?? `${REPO_ROOT}/studiolibrary/.venv/bin/python`,
+  script: `${REPO_ROOT}/studiolibrary/worker/embed.py`,
+  model: process.env.EMBED_MODEL ?? AI_MODELS.embed.model,
+  dim: AI_MODELS.embed.dim,
+  device: process.env.EMBED_DEVICE ?? "cpu",
 } as const;
 
 // ── File-kind detection ─────────────────────────────────────────────────────

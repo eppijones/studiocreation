@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { setReviewState, setRating, addTag, removeTag, setCustomField, tagSuggestions } from "@/studiolibrary/lib/review";
 import { fireEvent } from "@/studiolibrary/lib/automation";
 import { getAsset } from "@/studiolibrary/lib/repo";
+import { currentUser } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,13 +16,15 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const actor = (await cookies()).get("studio_operator")?.value ?? null;
+  const me = await currentUser();
+  const actor = me?.name ?? (await cookies()).get("studio_operator")?.value ?? null;
+  const actorId = me?.id ?? null;
   const b = await req.json();
   const assetId = Number(b.assetId);
   try {
     switch (b.action) {
       case "state": {
-        await setReviewState(assetId, String(b.state), actor);
+        await setReviewState(assetId, String(b.state), actor, actorId);
         // Let automation react to the new state (additive).
         const a = await getAsset(assetId);
         await fireEvent("asset.state_changed", { assetId, kind: a?.kind, relPath: a?.rel_path, reviewState: String(b.state) }).catch(() => {});

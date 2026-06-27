@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "migrate": "tsx scripts/migrate.ts",
+    "seed:users": "tsx scripts/seed-users.ts",
     "library:migrate": "tsx studiolibrary/lib/db/migrate.ts",
     "library:crawl": "tsx studiolibrary/worker/index.ts crawl",
     "library:work": "tsx studiolibrary/worker/index.ts work",
